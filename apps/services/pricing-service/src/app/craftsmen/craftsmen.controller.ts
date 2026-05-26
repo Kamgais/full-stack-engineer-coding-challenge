@@ -15,6 +15,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -26,13 +27,16 @@ import { CreateCraftsmanDto } from './dto/create-craftsman.dto';
 import { UpdateCraftsmanDto } from './dto/update-craftsman.dto';
 import { QueryCraftsmenDto } from './dto/query-craftsmen.dto';
 import { CraftsmanResponseDto } from './dto/craftsman-response.dto';
+import { QuoteResponseDto } from '../pricing-catalogs/dto/quote-response.dto';
+import { QuoteRequestDto } from '../pricing-catalogs/dto/quote-request.dto';
+import { PricingCatalogsService } from '../pricing-catalogs/pricing-catalogs.service';
 
 @ApiTags('Craftsmen')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('craftsmen')
 export class CraftsmenController {
-  constructor(private readonly service: CraftsmenService) {}
+  constructor(private readonly service: CraftsmenService, private readonly pricingCatalogsService: PricingCatalogsService) {}
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.CRAFTSMAN)
@@ -91,5 +95,21 @@ export class CraftsmenController {
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
     return this.service.remove(id, user);
+  }
+
+
+  @Post(':id/trades/:trade/quote')
+  @ApiOperation({ summary: 'Angebot auf aktiver PUBLISHED Version berechnen' })
+  @ApiParam({ name: 'id', description: 'Craftsman ID' })
+  @ApiParam({ name: 'trade', description: 'Trade Code z.B. HVAC' })
+  @ApiResponse({ status: 200, type: QuoteResponseDto })
+  @ApiResponse({ status: 404, description: 'Keine PUBLISHED Version gefunden' })
+  quoteByTrade(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('trade') trade: string,
+    @Body() dto: QuoteRequestDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<QuoteResponseDto> {
+    return this.pricingCatalogsService.quoteByTrade(id, trade, dto, user);
   }
 }
