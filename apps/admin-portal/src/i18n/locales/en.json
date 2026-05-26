@@ -49,6 +49,33 @@
       "max": "Maximum",
       "values": "Allowed values",
       "dependsOn": "Depends on"
+    },
+    "schema": {
+      "heading": "Schema editor",
+      "addField": "Add field",
+      "editField": "Edit field",
+      "deleteField": "Delete field",
+      "deleteConfirm": "Really delete this field?",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveSuccess": "Schema saved successfully.",
+      "saveFailed": "Could not save schema.",
+      "conflictError": "The new schema is incompatible with existing positions:",
+      "emptyState": "No fields yet. Add the first field.",
+      "fieldName": "Field name",
+      "fieldType": "Type",
+      "fieldRequired": "Required",
+      "fieldMin": "Min value",
+      "fieldMax": "Max value",
+      "fieldAllowedValues": "Allowed values (comma-separated)",
+      "fieldDependsOn": "Depends on field",
+      "fieldDependsOnValue": "When value equals",
+      "types": {
+        "string": "Text",
+        "number": "Number",
+        "boolean": "Boolean",
+        "enum": "Enum"
+      }
     }
   }
 }

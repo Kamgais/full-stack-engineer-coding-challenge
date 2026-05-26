@@ -2,6 +2,8 @@ import {
   Alert,
   Box,
   Chip,
+  Collapse,
+  Divider,
   Paper,
   Skeleton,
   Stack,
@@ -17,32 +19,44 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '../services/api.service';
 import { listTrades, TradeConfigResponse } from '../services/trades.service';
+import { SchemaEditor } from '../components/SchemaEditor';
+
 
 /**
- * Read-only trade list. Shows the *current* state of each trade's pricing
- * schema (read from `metadata.pricingSchema`, the temporary holding spot
- * until the candidate adds a typed `pricingSchema` column on TradeConfig).
+ * Trade-Konfigurationsseite mit integriertem Schema-Editor.
  *
- * The candidate's job is to:
- *   1. Add a typed `pricingSchema` field to TradeConfig (backend).
- *   2. Add `PATCH /trades/:trade` (ADMIN) that updates it.
- *   3. Add a structured editor UI here (or a child route) for managing the
- *      schema's fields (name, type, required, min/max, enum values, dependsOn).
- *   4. Surface validation errors from the backend in the UI.
+ * Implementiert:
+ *   1. pricingSchema als eigene Spalte in TradeConfig (Backend).
+ *   2. PATCH /trades/:trade (nur ADMIN) zum Aktualisieren.
+ *   3. Strukturierter Schema-Editor — Zeile anklicken öffnet den Editor.
+ *   4. 409-Konflikt-Banner wenn das neue Schema bestehende DRAFT-Positionen invalidiert.
  */
+
 export function TradesPage(): JSX.Element {
   const { t } = useTranslation();
   const [trades, setTrades] = useState<TradeConfigResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<string | null>(null);
 
   useEffect(() => {
     listTrades()
       .then(setTrades)
       .catch((err: unknown) => {
-        const message = err instanceof ApiError ? err.message : t('trades.loadFailed');
+        const message =
+          err instanceof ApiError ? err.message : t('trades.loadFailed');
         setError(message);
       });
   }, [t]);
+
+  function handleRowClick(trade: string) {
+    setSelectedTrade((prev) => (prev === trade ? null : trade));
+  }
+
+  function handleSaved(updated: TradeConfigResponse) {
+    setTrades((prev) =>
+      prev ? prev.map((t) => (t.trade === updated.trade ? updated : t)) : prev,
+    );
+  }
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
@@ -73,12 +87,14 @@ export function TradesPage(): JSX.Element {
           </Typography>
         </Paper>
       ) : (
-        <Paper>
-          <TableContainer>
+        <Stack spacing={0}>
+          <TableContainer component={Paper}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('trades.columns.code')}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    {t('trades.columns.code')}
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>
                     {t('trades.columns.displayName')}
                   </TableCell>
@@ -92,50 +108,65 @@ export function TradesPage(): JSX.Element {
               </TableHead>
               <TableBody>
                 {trades.map((trade) => (
-                  <TableRow key={trade.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontFamily="monospace">
-                        {trade.trade}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{trade.displayName}</TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={trade.isActive ? '✓' : '—'}
-                        size="small"
-                        color={trade.isActive ? 'success' : 'default'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" color="text.secondary">
-                        {countSchemaFields(trade.metadata)}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {/* Zeile klicken → Schema-Editor öffnen */}
+                    <TableRow
+                      key={trade.id}
+                      hover
+                      onClick={() => handleRowClick(trade.trade)}
+                      sx={{ cursor: 'pointer' }}
+                      selected={selectedTrade === trade.trade}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" fontFamily="monospace">
+                          {trade.trade}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{trade.displayName}</TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={trade.isActive ? '✓' : '—'}
+                          size="small"
+                          color={trade.isActive ? 'success' : 'default'}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" color="text.secondary">
+                          {trade.pricingSchema?.fields?.length ?? 0}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Schema-Editor aufklappen */}
+                    <TableRow key={`${trade.id}-editor`}>
+                      <TableCell colSpan={4} sx={{ p: 0, border: 0 }}>
+                        <Collapse
+                          in={selectedTrade === trade.trade}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <Box sx={{ p: 3, bgcolor: 'background.default' }}>
+                            <SchemaEditor
+                              trade={trade}
+                              onSaved={handleSaved}
+                            />
+                          </Box>
+                          <Divider />
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-        </Paper>
+        </Stack>
       )}
-
-      {/*
-        TODO (candidate): per-trade detail / edit view goes here. Suggested:
-        click a row → opens a side panel or child route at /trades/:code
-        with the structured schema editor.
-      */}
-      <Box />
     </Stack>
   );
 }
 
-/**
- * Reads `metadata.pricingSchema.fields[]` if present and returns the field
- * count. Returns 0 if no schema is configured yet.
- *
- * Exported for testing — see TradesPage.spec.ts.
- */
 export function countSchemaFields(metadata: Record<string, unknown>): number {
   const schema = metadata?.pricingSchema as { fields?: unknown[] } | undefined;
   if (!schema || !Array.isArray(schema.fields)) {

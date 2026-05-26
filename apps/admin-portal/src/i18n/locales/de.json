@@ -28,27 +28,54 @@
     },
     "hint": "Verwende admin@example.com / admin123."
   },
-  "trades": {
-    "heading": "Trade-Konfiguration",
-    "subheading": "Übersicht aller Trade-Kategorien und ihrer Preis-Schemas.",
-    "columns": {
-      "code": "Code",
-      "displayName": "Bezeichnung",
-      "isActive": "Aktiv",
-      "fieldCount": "Felder im Schema"
-    },
-    "emptyState": "Keine Trade-Kategorien gefunden.",
-    "loadFailed": "Trades konnten nicht geladen werden.",
-    "viewSchema": "Schema ansehen",
-    "schemaPlaceholder": "Für diese Trade-Kategorie ist noch kein Preis-Schema konfiguriert.",
-    "schemaPropertyNames": {
-      "name": "Name",
-      "type": "Typ",
-      "required": "Pflichtfeld",
-      "min": "Minimum",
-      "max": "Maximum",
-      "values": "Erlaubte Werte",
-      "dependsOn": "Abhängig von"
+ "trades": {
+  "heading": "Trade-Konfiguration",
+  "subheading": "Übersicht aller Trade-Kategorien und ihrer Preis-Schemas.",
+  "columns": {
+    "code": "Code",
+    "displayName": "Bezeichnung",
+    "isActive": "Aktiv",
+    "fieldCount": "Felder im Schema"
+  },
+  "emptyState": "Keine Trade-Kategorien gefunden.",
+  "loadFailed": "Trades konnten nicht geladen werden.",
+  "viewSchema": "Schema bearbeiten",
+  "schemaPlaceholder": "Für diese Trade-Kategorie ist noch kein Preis-Schema konfiguriert.",
+  "schemaPropertyNames": {
+    "name": "Name",
+    "type": "Typ",
+    "required": "Pflichtfeld",
+    "min": "Minimum",
+    "max": "Maximum",
+    "values": "Erlaubte Werte",
+    "dependsOn": "Abhängig von"
+  },
+  "schema": {
+    "heading": "Schema-Editor",
+    "addField": "Feld hinzufügen",
+    "editField": "Feld bearbeiten",
+    "deleteField": "Feld löschen",
+    "deleteConfirm": "Dieses Feld wirklich löschen?",
+    "save": "Speichern",
+    "saving": "Wird gespeichert …",
+    "saveSuccess": "Schema erfolgreich gespeichert.",
+    "saveFailed": "Schema konnte nicht gespeichert werden.",
+    "conflictError": "Das neue Schema ist inkompatibel mit bestehenden Positionen:",
+    "emptyState": "Noch keine Felder. Füge das erste Feld hinzu.",
+    "fieldName": "Feldname",
+    "fieldType": "Typ",
+    "fieldRequired": "Pflichtfeld",
+    "fieldMin": "Min-Wert",
+    "fieldMax": "Max-Wert",
+    "fieldAllowedValues": "Erlaubte Werte (kommagetrennt)",
+    "fieldDependsOn": "Abhängig von Feld",
+    "fieldDependsOnValue": "Wenn Wert gleich",
+    "types": {
+      "string": "Text",
+      "number": "Zahl",
+      "boolean": "Ja/Nein",
+      "enum": "Auswahl"
     }
   }
+}
 }
