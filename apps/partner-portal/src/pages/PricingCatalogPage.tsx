@@ -70,8 +70,6 @@ export function PricingCatalogPage(): JSX.Element {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  const trades: string[] = (user as any)?.trades ?? [];
-
   const [selectedTab, setSelectedTab] = useState(0);
   const [versions, setVersions] = useState<Record<string, CatalogVersion | null>>({});
   const [schemaFields, setSchemaFields] = useState<Record<string, PricingSchemaField[]>>({});
@@ -90,6 +88,7 @@ export function PricingCatalogPage(): JSX.Element {
   const [publishDialog, setPublishDialog] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
+  const [trades, setTrades] = useState<string[]>([]);
   // Quote state
   const [quoteQtys, setQuoteQtys] = useState<Record<string, string>>({});
   const [quoteResult, setQuoteResult] = useState<QuoteResult | null>(null);
@@ -102,32 +101,44 @@ export function PricingCatalogPage(): JSX.Element {
 
   // ─── Daten laden ────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!user?.craftsmanId || trades.length === 0) {
-      setLoading(false);
-      return;
-    }
+useEffect(() => {
+  if (!user?.craftsmanId) {
+    setLoading(false);
+    return;
+  }
 
-    Promise.all(
-      trades.map(async (trade: string) => {
-        const [tradeVersions, tradeConfig] = await Promise.all([
-          listCatalogVersions(trade),
-          getTrade(trade),
-        ]);
+  // Zuerst Craftsman laden um die Trades zu bekommen
+  import('../services/craftsmen.service')
+    .then(({ fetchCraftsman }) => fetchCraftsman(user.craftsmanId!))
+    .then((craftsman) => {
+      setTrades(craftsman.trades);
+      return craftsman.trades;
+    })
+    .then((craftsmanTrades) => {
+      if (craftsmanTrades.length === 0) {
+        setLoading(false);
+        return;
+      }
 
-        const draft = tradeVersions.find((v) => v.status === 'DRAFT');
-        const published = tradeVersions
-          .filter((v) => v.status === 'PUBLISHED')
-          .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+      return Promise.all(
+        craftsmanTrades.map(async (trade: string) => {
+          const [tradeVersions, tradeConfig] = await Promise.all([
+            listCatalogVersions(trade),
+            getTrade(trade),
+          ]);
 
-        return {
-          trade,
-          version: draft ?? published ?? null,
-          schema: tradeConfig.pricingSchema?.fields ?? [],
-        };
-      }),
-    )
-      .then((results) => {
+          const draft = tradeVersions.find((v) => v.status === 'DRAFT');
+          const published = tradeVersions
+            .filter((v) => v.status === 'PUBLISHED')
+            .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+
+          return {
+            trade,
+            version: draft ?? published ?? null,
+            schema: tradeConfig.pricingSchema?.fields ?? [],
+          };
+        }),
+      ).then((results) => {
         const vMap: Record<string, CatalogVersion | null> = {};
         const sMap: Record<string, PricingSchemaField[]> = {};
         results.forEach(({ trade, version, schema }) => {
@@ -136,14 +147,15 @@ export function PricingCatalogPage(): JSX.Element {
         });
         setVersions(vMap);
         setSchemaFields(sMap);
-      })
-      .catch((err: unknown) => {
-        const message =
-          err instanceof ApiError ? err.message : t('app.errors.generic');
-        setError(message);
-      })
-      .finally(() => setLoading(false));
-  }, [user, t]);
+      });
+    })
+    .catch((err: unknown) => {
+      const message =
+        err instanceof ApiError ? err.message : t('app.errors.generic');
+      setError(message);
+    })
+    .finally(() => setLoading(false));
+}, [user, t]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
