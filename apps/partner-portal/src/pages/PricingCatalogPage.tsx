@@ -99,6 +99,7 @@ function VersionRow({
   const [quoteQtys, setQuoteQtys] = useState<Record<string, string>>({});
   const [quoteResult, setQuoteResult] = useState<QuoteResult | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   async function handleSavePosition(position: UpsertPositionRequest) {
     const existing = version.positions;
@@ -161,16 +162,24 @@ function VersionRow({
         quantity: Number(quoteQtys[p.key]),
       }));
 
-    if (lines.length === 0) return;
+    if (lines.length === 0) {
+      setQuoteError('Bitte mindestens eine Menge eingeben.');
+      return;
+    }
+
     setQuoteLoading(true);
+    setQuoteError(null);
+    setQuoteResult(null);
+
     try {
       const result = await calculateQuote(version.id, lines);
       setQuoteResult(result);
     } catch (err) {
-      onSnack(
-        'error',
-        err instanceof ApiError ? err.message : t('pricing.quote.failed'),
-      );
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : t('pricing.quote.failed');
+      setQuoteError(message);
     } finally {
       setQuoteLoading(false);
     }
@@ -239,15 +248,16 @@ function VersionRow({
                 {/* Archiv-Hinweis */}
                 {isArchived && (
                   <Alert severity="info">
-                    Diese Version ist archiviert und kann nicht mehr bearbeitet werden.
-                    Sie bleibt für Audit-Zwecke lesbar.
+                    Diese Version ist archiviert und kann nicht mehr bearbeitet
+                    werden. Sie bleibt für Audit-Zwecke lesbar.
                   </Alert>
                 )}
 
                 {/* Aktiv-Hinweis */}
                 {version.status === 'PUBLISHED' && isLatestPublished && (
                   <Alert severity="success">
-                    Dies ist die aktuell aktive Version. Sie ist eingefroren und kann nicht mehr bearbeitet werden.
+                    Dies ist die aktuell aktive Version. Sie ist eingefroren
+                    und kann nicht mehr bearbeitet werden.
                   </Alert>
                 )}
 
@@ -304,9 +314,15 @@ function VersionRow({
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>{t('pricing.positions.columns.key')}</TableCell>
-                          <TableCell>{t('pricing.positions.columns.label')}</TableCell>
-                          <TableCell>{t('pricing.positions.columns.unit')}</TableCell>
+                          <TableCell>
+                            {t('pricing.positions.columns.key')}
+                          </TableCell>
+                          <TableCell>
+                            {t('pricing.positions.columns.label')}
+                          </TableCell>
+                          <TableCell>
+                            {t('pricing.positions.columns.unit')}
+                          </TableCell>
                           <TableCell align="right">
                             {t('pricing.positions.columns.netPrice')}
                           </TableCell>
@@ -324,13 +340,18 @@ function VersionRow({
                         {version.positions.map((pos) => (
                           <TableRow key={pos.key} hover>
                             <TableCell>
-                              <Typography variant="body2" fontFamily="monospace">
+                              <Typography
+                                variant="body2"
+                                fontFamily="monospace"
+                              >
                                 {pos.key}
                               </Typography>
                             </TableCell>
                             <TableCell>{pos.label}</TableCell>
                             <TableCell>
-                              {t(`pricing.positions.units.${pos.unit}` as any)}
+                              {t(
+                                `pricing.positions.units.${pos.unit}` as any,
+                              )}
                             </TableCell>
                             <TableCell align="right">
                               {formatCents(pos.netPriceMinorUnits)}
@@ -354,7 +375,9 @@ function VersionRow({
                                     <Edit fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                                <Tooltip title={t('pricing.positions.delete')}>
+                                <Tooltip
+                                  title={t('pricing.positions.delete')}
+                                >
                                   <IconButton
                                     size="small"
                                     color="error"
@@ -383,6 +406,7 @@ function VersionRow({
                         {t('pricing.quote.heading')}
                       </Typography>
 
+                      {/* Mengen eingeben */}
                       <Stack spacing={1}>
                         {version.positions.map((pos) => (
                           <Stack
@@ -391,27 +415,49 @@ function VersionRow({
                             spacing={2}
                             alignItems="center"
                           >
-                            <Typography variant="body2" sx={{ flex: 1 }}>
-                              {pos.label}
-                            </Typography>
+                            <Stack sx={{ flex: 1 }}>
+                              <Typography variant="body2">
+                                {pos.label}
+                              </Typography>
+                              {(pos.minQuantity || pos.maxQuantity) && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {pos.minQuantity && `Min: ${pos.minQuantity}`}
+                                  {pos.minQuantity && pos.maxQuantity && ' — '}
+                                  {pos.maxQuantity && `Max: ${pos.maxQuantity}`}
+                                </Typography>
+                              )}
+                            </Stack>
                             <TextField
                               label={t('pricing.quote.quantity')}
                               type="number"
                               size="small"
-                              sx={{ width: 100 }}
+                              sx={{ width: 120 }}
                               value={quoteQtys[pos.key] ?? ''}
-                              onChange={(e) =>
+                              onChange={(e) => {
                                 setQuoteQtys((prev) => ({
                                   ...prev,
                                   [pos.key]: e.target.value,
-                                }))
+                                }));
+                                setQuoteError(null);
+                              }}
+                              inputProps={{
+                                min: pos.minQuantity ?? 1,
+                                max: pos.maxQuantity ?? undefined,
+                              }}
+                              helperText={
+                                pos.minQuantity
+                                  ? `Min. ${pos.minQuantity}`
+                                  : undefined
                               }
-                              inputProps={{ min: 1 }}
                             />
                           </Stack>
                         ))}
                       </Stack>
 
+                      {/* Berechnen Button */}
                       <Box>
                         <Button
                           variant="outlined"
@@ -429,10 +475,23 @@ function VersionRow({
                         </Button>
                       </Box>
 
+                      {/* Fehler direkt sichtbar */}
+                      {quoteError && (
+                        <Alert
+                          severity="error"
+                          onClose={() => setQuoteError(null)}
+                        >
+                          {quoteError}
+                        </Alert>
+                      )}
+
                       {/* Quote Ergebnis */}
                       {quoteResult && (
                         <Stack spacing={1}>
-                          <TableContainer component={Paper} variant="outlined">
+                          <TableContainer
+                            component={Paper}
+                            variant="outlined"
+                          >
                             <Table size="small">
                               <TableHead>
                                 <TableRow>
@@ -475,13 +534,17 @@ function VersionRow({
                             </Table>
                           </TableContainer>
 
+                          {/* MwSt Gruppen */}
                           {quoteResult.vatGroups.map((g) => (
                             <Stack
                               key={g.vatRate}
                               direction="row"
                               justifyContent="space-between"
                             >
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
                                 {t('pricing.quote.vat')}{' '}
                                 {(g.vatRate * 100).toFixed(0)}%
                               </Typography>
@@ -491,6 +554,25 @@ function VersionRow({
                             </Stack>
                           ))}
 
+                          {/* Rabatte */}
+                          {quoteResult.totals.discountsTotalMinorUnits > 0 && (
+                            <Stack
+                              direction="row"
+                              justifyContent="space-between"
+                            >
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {t('pricing.quote.discounts')}
+                              </Typography>
+                              <Typography variant="body2" color="error">
+                                -{formatCents(quoteResult.totals.discountsTotalMinorUnits)}
+                              </Typography>
+                            </Stack>
+                          )}
+
+                          {/* Gesamt */}
                           <Stack
                             direction="row"
                             justifyContent="space-between"
@@ -504,7 +586,9 @@ function VersionRow({
                               {t('pricing.quote.total')}
                             </Typography>
                             <Typography variant="body1" fontWeight={600}>
-                              {formatCents(quoteResult.totals.grossMinorUnits)}
+                              {formatCents(
+                                quoteResult.totals.grossMinorUnits,
+                              )}
                             </Typography>
                           </Stack>
                         </Stack>
@@ -564,10 +648,12 @@ export function PricingCatalogPage(): JSX.Element {
   const [trades, setTrades] = useState<string[]>([]);
   const [selectedTab, setSelectedTab] = useState(0);
   const [versions, setVersions] = useState<Record<string, CatalogVersion[]>>({});
-  const [schemaFields, setSchemaFields] = useState<Record<string, PricingSchemaField[]>>({});
+ const [schemaFields, setSchemaFields] = useState<Record<string, PricingSchemaField[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
+  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(
+    null,
+  );
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [snack, setSnack] = useState<{
     severity: 'success' | 'error';
@@ -579,7 +665,6 @@ export function PricingCatalogPage(): JSX.Element {
   const currentSchema = currentTrade ? (schemaFields[currentTrade] ?? []) : [];
   const hasDraft = currentVersions.some((v) => v.status === 'DRAFT');
 
-  // Neueste PUBLISHED Version bestimmen
   const latestPublished = currentVersions
     .filter((v) => v.status === 'PUBLISHED')
     .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
@@ -724,7 +809,11 @@ export function PricingCatalogPage(): JSX.Element {
           </Tabs>
 
           {/* Header + Neue Version Button */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
             <Typography variant="h2">
               {t('pricing.draft.heading')}
             </Typography>
@@ -754,8 +843,8 @@ export function PricingCatalogPage(): JSX.Element {
           {/* Hinweis wenn Draft existiert */}
           {hasDraft && (
             <Alert severity="info">
-              Es gibt bereits einen offenen Entwurf. Bitte zuerst veröffentlichen
-              bevor du einen neuen erstellst.
+              Es gibt bereits einen offenen Entwurf. Bitte zuerst
+              veröffentlichen bevor du einen neuen erstellst.
             </Alert>
           )}
 
