@@ -32,6 +32,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api.service';
+import { fetchCraftsman } from '../services/craftsmen.service';
 import {
   calculateQuote,
   CatalogPosition,
@@ -49,8 +50,6 @@ import {
 } from '../services/pricing-catalogs.service';
 import { PositionDialog } from '../components/PositionDialog';
 
-// ─── Hilfsfunktion ────────────────────────────────────────────────────────────
-
 function positionToRequest(p: CatalogPosition): UpsertPositionRequest {
   return {
     key: p.key,
@@ -64,8 +63,6 @@ function positionToRequest(p: CatalogPosition): UpsertPositionRequest {
     surcharges: p.surcharges,
   };
 }
-
-// ─── VersionRow ───────────────────────────────────────────────────────────────
 
 interface VersionRowProps {
   version: CatalogVersion;
@@ -163,7 +160,7 @@ function VersionRow({
       }));
 
     if (lines.length === 0) {
-      setQuoteError('Bitte mindestens eine Menge eingeben.');
+      setQuoteError(t('pricing.quote.emptyQty'));
       return;
     }
 
@@ -175,11 +172,9 @@ function VersionRow({
       const result = await calculateQuote(version.id, lines);
       setQuoteResult(result);
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : t('pricing.quote.failed');
-      setQuoteError(message);
+      setQuoteError(
+        err instanceof ApiError ? err.message : t('pricing.quote.failed'),
+      );
     } finally {
       setQuoteLoading(false);
     }
@@ -187,7 +182,6 @@ function VersionRow({
 
   return (
     <>
-      {/* Versions-Zeile */}
       <TableRow hover onClick={onToggle} sx={{ cursor: 'pointer' }}>
         <TableCell>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -205,14 +199,22 @@ function VersionRow({
         <TableCell>
           <Stack direction="row" spacing={1}>
             {isDraft && (
-              <Chip label="DRAFT" color="warning" size="small" />
+              <Chip
+                label={t('pricing.versions.statusLabels.draft')}
+                color="warning"
+                size="small"
+              />
             )}
             {version.status === 'PUBLISHED' && isLatestPublished && (
-              <Chip label="AKTIV" color="success" size="small" />
+              <Chip
+                label={t('pricing.versions.statusLabels.active')}
+                color="success"
+                size="small"
+              />
             )}
             {isArchived && (
               <Chip
-                label="ARCHIV"
+                label={t('pricing.versions.statusLabels.archived')}
                 color="default"
                 size="small"
                 variant="outlined"
@@ -223,7 +225,9 @@ function VersionRow({
 
         <TableCell>
           <Typography variant="body2" color="text.secondary">
-            {version.positions.length} Positionen
+            {t('pricing.versions.positionsCount', {
+              count: version.positions.length,
+            })}
           </Typography>
         </TableCell>
 
@@ -238,30 +242,24 @@ function VersionRow({
         </TableCell>
       </TableRow>
 
-      {/* Aufgeklappter Detail-Bereich */}
       <TableRow>
         <TableCell colSpan={4} sx={{ p: 0, border: 0 }}>
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
             <Box sx={{ p: 3, bgcolor: 'background.default' }}>
               <Stack spacing={3}>
 
-                {/* Archiv-Hinweis */}
                 {isArchived && (
                   <Alert severity="info">
-                    Diese Version ist archiviert und kann nicht mehr bearbeitet
-                    werden. Sie bleibt für Audit-Zwecke lesbar.
+                    {t('pricing.versions.archivedHint')}
                   </Alert>
                 )}
 
-                {/* Aktiv-Hinweis */}
                 {version.status === 'PUBLISHED' && isLatestPublished && (
                   <Alert severity="success">
-                    Dies ist die aktuell aktive Version. Sie ist eingefroren
-                    und kann nicht mehr bearbeitet werden.
+                    {t('pricing.versions.activeHint')}
                   </Alert>
                 )}
 
-                {/* Positions Header */}
                 <Stack
                   direction="row"
                   justifyContent="space-between"
@@ -298,7 +296,6 @@ function VersionRow({
                   )}
                 </Stack>
 
-                {/* Positions-Tabelle */}
                 {version.positions.length === 0 ? (
                   <Paper variant="outlined" sx={{ p: 3 }}>
                     <Typography
@@ -361,7 +358,9 @@ function VersionRow({
                             </TableCell>
                             {isDraft && (
                               <TableCell align="right">
-                                <Tooltip title={t('pricing.positions.edit')}>
+                                <Tooltip
+                                  title={t('pricing.positions.edit')}
+                                >
                                   <IconButton
                                     size="small"
                                     onClick={(e) => {
@@ -398,7 +397,6 @@ function VersionRow({
                   </TableContainer>
                 )}
 
-                {/* Quote Panel */}
                 {version.positions.length > 0 && (
                   <Paper variant="outlined" sx={{ p: 3 }}>
                     <Stack spacing={2}>
@@ -406,7 +404,6 @@ function VersionRow({
                         {t('pricing.quote.heading')}
                       </Typography>
 
-                      {/* Mengen eingeben */}
                       <Stack spacing={1}>
                         {version.positions.map((pos) => (
                           <Stack
@@ -424,9 +421,13 @@ function VersionRow({
                                   variant="caption"
                                   color="text.secondary"
                                 >
-                                  {pos.minQuantity && `Min: ${pos.minQuantity}`}
-                                  {pos.minQuantity && pos.maxQuantity && ' — '}
-                                  {pos.maxQuantity && `Max: ${pos.maxQuantity}`}
+                                  {pos.minQuantity &&
+                                    `Min: ${pos.minQuantity}`}
+                                  {pos.minQuantity &&
+                                    pos.maxQuantity &&
+                                    ' — '}
+                                  {pos.maxQuantity &&
+                                    `Max: ${pos.maxQuantity}`}
                                 </Typography>
                               )}
                             </Stack>
@@ -457,7 +458,6 @@ function VersionRow({
                         ))}
                       </Stack>
 
-                      {/* Berechnen Button */}
                       <Box>
                         <Button
                           variant="outlined"
@@ -475,7 +475,6 @@ function VersionRow({
                         </Button>
                       </Box>
 
-                      {/* Fehler direkt sichtbar */}
                       {quoteError && (
                         <Alert
                           severity="error"
@@ -485,7 +484,6 @@ function VersionRow({
                         </Alert>
                       )}
 
-                      {/* Quote Ergebnis */}
                       {quoteResult && (
                         <Stack spacing={1}>
                           <TableContainer
@@ -534,7 +532,6 @@ function VersionRow({
                             </Table>
                           </TableContainer>
 
-                          {/* MwSt Gruppen */}
                           {quoteResult.vatGroups.map((g) => (
                             <Stack
                               key={g.vatRate}
@@ -554,7 +551,6 @@ function VersionRow({
                             </Stack>
                           ))}
 
-                          {/* Rabatte */}
                           {quoteResult.totals.discountsTotalMinorUnits > 0 && (
                             <Stack
                               direction="row"
@@ -567,12 +563,13 @@ function VersionRow({
                                 {t('pricing.quote.discounts')}
                               </Typography>
                               <Typography variant="body2" color="error">
-                                -{formatCents(quoteResult.totals.discountsTotalMinorUnits)}
+                                -{formatCents(
+                                  quoteResult.totals.discountsTotalMinorUnits,
+                                )}
                               </Typography>
                             </Stack>
                           )}
 
-                          {/* Gesamt */}
                           <Stack
                             direction="row"
                             justifyContent="space-between"
@@ -602,7 +599,6 @@ function VersionRow({
         </TableCell>
       </TableRow>
 
-      {/* Position Dialog */}
       <PositionDialog
         open={positionDialog.open}
         initial={positionDialog.initial}
@@ -611,7 +607,6 @@ function VersionRow({
         onClose={() => setPositionDialog({ open: false, initial: null })}
       />
 
-      {/* Publish Dialog */}
       <Dialog open={publishDialog} onClose={() => setPublishDialog(false)}>
         <DialogTitle>{t('pricing.draft.publish')}</DialogTitle>
         <DialogContent>
@@ -639,8 +634,6 @@ function VersionRow({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export function PricingCatalogPage(): JSX.Element {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -648,12 +641,10 @@ export function PricingCatalogPage(): JSX.Element {
   const [trades, setTrades] = useState<string[]>([]);
   const [selectedTab, setSelectedTab] = useState(0);
   const [versions, setVersions] = useState<Record<string, CatalogVersion[]>>({});
- const [schemaFields, setSchemaFields] = useState<Record<string, PricingSchemaField[]>>({});
+  const [schemaFields, setSchemaFields] = useState<Record<string, PricingSchemaField[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(
-    null,
-  );
+  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [snack, setSnack] = useState<{
     severity: 'success' | 'error';
@@ -669,16 +660,13 @@ export function PricingCatalogPage(): JSX.Element {
     .filter((v) => v.status === 'PUBLISHED')
     .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
 
-  // ─── Daten laden ────────────────────────────────────────────────────────────
-
   useEffect(() => {
     if (!user?.craftsmanId) {
       setLoading(false);
       return;
     }
 
-    import('../services/craftsmen.service')
-      .then(({ fetchCraftsman }) => fetchCraftsman(user.craftsmanId!))
+    fetchCraftsman(user.craftsmanId)
       .then((craftsman) => {
         setTrades(craftsman.trades);
         return craftsman.trades;
@@ -716,14 +704,12 @@ export function PricingCatalogPage(): JSX.Element {
         });
       })
       .catch((err: unknown) => {
-        const message =
-          err instanceof ApiError ? err.message : t('app.errors.generic');
-        setError(message);
+        setError(
+          err instanceof ApiError ? err.message : t('app.errors.generic'),
+        );
       })
       .finally(() => setLoading(false));
   }, [user, t]);
-
-  // ─── Handlers ───────────────────────────────────────────────────────────────
 
   async function handleCreateDraft() {
     if (!currentTrade) return;
@@ -739,9 +725,10 @@ export function PricingCatalogPage(): JSX.Element {
       }));
       setExpandedVersionId(version.id);
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : t('app.errors.generic');
-      setSnack({ severity: 'error', message });
+      setSnack({
+        severity: 'error',
+        message: err instanceof ApiError ? err.message : t('app.errors.generic'),
+      });
     } finally {
       setCreatingDraft(false);
     }
@@ -756,8 +743,6 @@ export function PricingCatalogPage(): JSX.Element {
       ),
     }));
   }
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -775,8 +760,6 @@ export function PricingCatalogPage(): JSX.Element {
 
   return (
     <Stack spacing={3}>
-
-      {/* Heading */}
       <Stack spacing={1}>
         <Typography variant="h1">{t('pricing.heading')}</Typography>
         <Typography variant="body2" color="text.secondary">
@@ -784,7 +767,6 @@ export function PricingCatalogPage(): JSX.Element {
         </Typography>
       </Stack>
 
-      {/* Keine Trades */}
       {trades.length === 0 && (
         <Paper sx={{ p: 4 }}>
           <Typography variant="body2" color="text.secondary" textAlign="center">
@@ -795,7 +777,6 @@ export function PricingCatalogPage(): JSX.Element {
 
       {trades.length > 0 && (
         <>
-          {/* Tabs */}
           <Tabs
             value={selectedTab}
             onChange={(_, v) => {
@@ -808,7 +789,6 @@ export function PricingCatalogPage(): JSX.Element {
             ))}
           </Tabs>
 
-          {/* Header + Neue Version Button */}
           <Stack
             direction="row"
             justifyContent="space-between"
@@ -818,11 +798,7 @@ export function PricingCatalogPage(): JSX.Element {
               {t('pricing.draft.heading')}
             </Typography>
             <Tooltip
-              title={
-                hasDraft
-                  ? 'Bitte zuerst den offenen Entwurf veröffentlichen'
-                  : ''
-              }
+              title={hasDraft ? t('pricing.versions.tooltipDraftExists') : ''}
             >
               <span>
                 <Button
@@ -840,15 +816,12 @@ export function PricingCatalogPage(): JSX.Element {
             </Tooltip>
           </Stack>
 
-          {/* Hinweis wenn Draft existiert */}
           {hasDraft && (
             <Alert severity="info">
-              Es gibt bereits einen offenen Entwurf. Bitte zuerst
-              veröffentlichen bevor du einen neuen erstellst.
+              {t('pricing.versions.hasDraftHint')}
             </Alert>
           )}
 
-          {/* Versions-Liste */}
           {currentVersions.length === 0 ? (
             <Paper sx={{ p: 4 }}>
               <Typography
@@ -864,10 +837,18 @@ export function PricingCatalogPage(): JSX.Element {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Gültig ab</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Positionen</TableCell>
-                    <TableCell>Veröffentlicht von</TableCell>
+                    <TableCell>
+                      {t('pricing.versions.columns.effectiveFrom')}
+                    </TableCell>
+                    <TableCell>
+                      {t('pricing.versions.columns.status')}
+                    </TableCell>
+                    <TableCell>
+                      {t('pricing.versions.columns.positions')}
+                    </TableCell>
+                    <TableCell>
+                      {t('pricing.versions.columns.publishedBy')}
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -899,7 +880,6 @@ export function PricingCatalogPage(): JSX.Element {
         </>
       )}
 
-      {/* Snackbar */}
       <Snackbar
         open={!!snack}
         autoHideDuration={3500}
