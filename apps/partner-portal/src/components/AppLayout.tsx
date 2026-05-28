@@ -31,6 +31,16 @@ export function AppLayout({ children }: AppLayoutProps): JSX.Element {
             >
               {t('nav.profile')}
             </Button>
+            <Button
+              component={RouterLink}
+              to="/pricing"
+              sx={{
+                color: 'common.white',
+                textDecoration: location.pathname === '/pricing' ? 'underline' : 'none',
+              }}
+            >
+              {t('nav.pricing')}
+            </Button>
             {user && (
               <Button onClick={logout} sx={{ color: 'common.white' }}>
                 {t('nav.logout')}

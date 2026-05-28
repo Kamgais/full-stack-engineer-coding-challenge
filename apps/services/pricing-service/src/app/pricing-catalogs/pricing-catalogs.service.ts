@@ -215,64 +215,83 @@ export class PricingCatalogsService {
 
   // ─── Publish ────────────────────────────────────────────────────────────────
 
-  async publish(
-    id: string,
-    user: JwtPayload,
-  ): Promise<CatalogVersionResponseDto> {
-    const version = await this.loadVersion(id);
-    this.assertCanAccess(version.craftsmanId, user);
+async publish(
+  id: string,
+  user: JwtPayload,
+): Promise<CatalogVersionResponseDto> {
+  const version = await this.loadVersion(id);
+  this.assertCanAccess(version.craftsmanId, user);
 
-    if (version.status === CatalogVersionStatus.PUBLISHED) {
-      throw new BadRequestException('Diese Version ist bereits veröffentlicht.');
+  if (version.status === CatalogVersionStatus.PUBLISHED) {
+    throw new BadRequestException('Diese Version ist bereits veröffentlicht.');
+  }
+
+  return this.dataSource.transaction(async (tx) => {
+    // SELECT FOR UPDATE — verhindert concurrent publish
+    await tx.query(
+      `SELECT id FROM pricing_service.catalog_versions
+       WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+
+    // Nochmal laden nach dem Lock
+    const locked = await tx.getRepository(CatalogVersion).findOne({
+      where: { id },
+    });
+
+    if (!locked) throw new NotFoundException(`Version ${id} not found`);
+
+    // Doppelter Check nach dem Lock
+    if (locked.status === CatalogVersionStatus.PUBLISHED) {
+      throw new BadRequestException('Diese Version wurde bereits veröffentlicht.');
     }
 
-    return this.dataSource.transaction(async (tx) => {
-      // SELECT FOR UPDATE — verhindert concurrent publish
-      // Sperrt diese Version bis die Transaktion abgeschlossen ist
-      await tx.query(
-        `SELECT id FROM pricing_service.catalog_versions
-         WHERE id = $1 FOR UPDATE`,
-        [id],
-      );
-
-      // Nochmal laden nach dem Lock
-      const locked = await tx.getRepository(CatalogVersion).findOne({
-        where: { id },
-      });
-
-      if (!locked) throw new NotFoundException(`Version ${id} not found`);
-
-      // Doppelter Publish-Check nach dem Lock
-      if (locked.status === CatalogVersionStatus.PUBLISHED) {
-        throw new BadRequestException('Diese Version wurde bereits veröffentlicht.');
-      }
-
-      // Prüfen ob Positionen vorhanden sind
-      const positionCount = await tx.getRepository(CatalogPosition).count({
-        where: { versionId: id },
-      });
-      if (positionCount === 0) {
-        throw new BadRequestException(
-          'Ein Katalog muss mindestens eine Position haben bevor er veröffentlicht werden kann.',
-        );
-      }
-
-      // Version publishen
-      locked.status = CatalogVersionStatus.PUBLISHED;
-      locked.publishedBy = user.sub;
-      locked.publishedAt = new Date();
-
-      await tx.getRepository(CatalogVersion).save(locked);
-
-      this.logger.log(
-        `Published catalog version ${id} by user ${user.sub}`,
-      );
-
-      return CatalogVersionResponseDto.from(
-        await this.loadVersion(id, tx),
-      );
+    // Prüfen ob Positionen vorhanden
+    const positionCount = await tx.getRepository(CatalogPosition).count({
+      where: { versionId: id },
     });
-  }
+    if (positionCount === 0) {
+      throw new BadRequestException(
+        'Ein Katalog muss mindestens eine Position haben.',
+      );
+    }
+
+    // ── NEU: Alte aktive PUBLISHED Version deaktivieren ──────────────────
+    // Es darf immer nur eine aktive PUBLISHED Version geben.
+    // Wir setzen effectiveFrom der alten Version auf effectiveFrom der neuen
+    // Version damit sie nicht mehr aktiv ist — sie bleibt aber für Audit lesbar.
+    const currentlyActive = await tx
+      .getRepository(CatalogVersion)
+      .createQueryBuilder('v')
+      .where('v.craftsman_id = :craftsmanId', { craftsmanId: locked.craftsmanId })
+      .andWhere('v.trade = :trade', { trade: locked.trade })
+      .andWhere('v.status = :status', { status: CatalogVersionStatus.PUBLISHED })
+      .andWhere('v.id != :id', { id })
+      .getMany();
+
+    // Alte Versionen bleiben PUBLISHED (für Audit) aber effectiveFrom
+    // der neuen Version überschreibt den aktiven Zeitraum
+    this.logger.log(
+      `Found ${currentlyActive.length} existing PUBLISHED versions for ` +
+      `(${locked.craftsmanId}, ${locked.trade}) — they remain as audit log`,
+    );
+
+    // Version publishen
+    locked.status = CatalogVersionStatus.PUBLISHED;
+    locked.publishedBy = user.sub;
+    locked.publishedAt = new Date();
+
+    await tx.getRepository(CatalogVersion).save(locked);
+
+    this.logger.log(
+      `Published catalog version ${id} by user ${user.sub}`,
+    );
+
+    return CatalogVersionResponseDto.from(
+      await this.loadVersion(id, tx),
+    );
+  });
+}
 
   // ─── Quote ──────────────────────────────────────────────────────────────────
 
@@ -287,33 +306,33 @@ export class PricingCatalogsService {
     return this.calculateFromVersion(version, dto);
   }
 
-  async quoteByTrade(
-    craftsmanId: string,
-    trade: string,
-    dto: QuoteRequestDto,
-    user: JwtPayload,
-  ): Promise<QuoteResponseDto> {
-    this.assertCanAccess(craftsmanId, user);
+async quoteByTrade(
+  craftsmanId: string,
+  trade: string,
+  dto: QuoteRequestDto,
+  user: JwtPayload,
+): Promise<QuoteResponseDto> {
+  this.assertCanAccess(craftsmanId, user);
 
-    // Aktive PUBLISHED Version finden
-    const version = await this.versions.findOne({
-      where: {
-        craftsmanId,
-        trade,
-        status: CatalogVersionStatus.PUBLISHED,
-      },
-      relations: ['positions', 'discounts'],
-      order: { effectiveFrom: 'DESC' },
-    });
+  // Neueste PUBLISHED Version = höchstes effectiveFrom
+  const version = await this.versions.findOne({
+    where: {
+      craftsmanId,
+      trade,
+      status: CatalogVersionStatus.PUBLISHED,
+    },
+    relations: ['positions', 'discounts'],
+    order: { effectiveFrom: 'DESC' }, // ← neueste zuerst
+  });
 
-    if (!version) {
-      throw new NotFoundException(
-        `Keine veröffentlichte Version für Handwerker ${craftsmanId} und Gewerk ${trade}`,
-      );
-    }
-
-    return this.calculateFromVersion(version, dto);
+  if (!version) {
+    throw new NotFoundException(
+      `Keine veröffentlichte Version für Handwerker ${craftsmanId} und Gewerk ${trade}`,
+    );
   }
+
+  return this.calculateFromVersion(version, dto);
+}
 
   // ─── Private Helpers ────────────────────────────────────────────────────────
 
