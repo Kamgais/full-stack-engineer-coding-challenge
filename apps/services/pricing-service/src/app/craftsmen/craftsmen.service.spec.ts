@@ -1,14 +1,14 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, ObjectLiteral, Repository } from 'typeorm';
 import { JwtPayload, UserRole } from '@sandbox/types';
 
 import { Craftsman } from './entities/craftsman.entity';
 import { CraftsmanTradeAssignment } from './entities/craftsman-trade-assignment.entity';
 import { CraftsmenService } from './craftsmen.service';
 
-type Repo<T> = Partial<Record<keyof Repository<T>, jest.Mock>>;
+type Repo<T extends ObjectLiteral> = Partial<Record<keyof Repository<T>, jest.Mock>>;
 
 const adminUser: JwtPayload = {
   sub: 'admin-id',

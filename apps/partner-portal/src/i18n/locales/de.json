@@ -54,6 +54,62 @@
       "loadFailed": "Profil konnte nicht geladen werden."
     }
   },
+  "pricing": {
+  "heading": "Mein Preiskatalog",
+  "subheading": "Verwalte deine Preispositionen und veröffentliche deinen Katalog.",
+  "tabs": {
+    "noTrades": "Keine Trade-Kategorien zugewiesen."
+  },
+  "draft": {
+    "heading": "Aktueller Entwurf",
+    "newDraft": "Neuen Entwurf erstellen",
+    "publish": "Veröffentlichen",
+    "publishing": "Wird veröffentlicht …",
+    "publishConfirm": "Möchtest du diesen Katalog wirklich veröffentlichen? Er kann danach nicht mehr geändert werden.",
+    "publishSuccess": "Katalog erfolgreich veröffentlicht.",
+    "publishFailed": "Veröffentlichung fehlgeschlagen.",
+    "noDraft": "Kein Entwurf vorhanden.",
+    "createFirst": "Erstelle einen neuen Entwurf um loszulegen."
+  },
+  "positions": {
+    "heading": "Positionen",
+    "add": "Position hinzufügen",
+    "edit": "Position bearbeiten",
+    "delete": "Position löschen",
+    "deleteConfirm": "Diese Position wirklich löschen?",
+    "empty": "Noch keine Positionen. Füge die erste Position hinzu.",
+    "columns": {
+      "key": "Schlüssel",
+      "label": "Bezeichnung",
+      "unit": "Einheit",
+      "netPrice": "Nettopreis",
+      "vat": "MwSt",
+      "actions": "Aktionen"
+    },
+    "units": {
+      "piece": "Stück",
+      "m2": "m²",
+      "meter": "Meter",
+      "hour": "Stunde",
+      "flat": "Pauschale"
+    },
+    "saved": "Positionen gespeichert.",
+    "saveFailed": "Speichern fehlgeschlagen."
+  },
+  "quote": {
+    "heading": "Angebot berechnen",
+    "calculate": "Berechnen",
+    "calculating": "Wird berechnet …",
+    "quantity": "Menge",
+    "net": "Netto",
+    "vat": "MwSt",
+    "gross": "Brutto",
+    "discounts": "Rabatte",
+    "total": "Gesamt",
+    "empty": "Füge Positionen hinzu um ein Angebot zu berechnen.",
+    "failed": "Berechnung fehlgeschlagen."
+  }
+    },
   "validation": {
     "required": "Pflichtfeld",
     "email": "Ungültige E-Mail",

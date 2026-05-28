@@ -6,11 +6,11 @@
 
 set -e
 
-echo "[pricing-service] running migrations…"
+echo "[pricing-service] running migrationsÃ¢â‚¬Â¦"
 yarn migration:run
 
-echo "[pricing-service] seeding…"
+echo "[pricing-service] seedingÃ¢â‚¬Â¦"
 yarn seed || echo "[pricing-service] seed step finished with warnings (likely already seeded)"
 
-echo "[pricing-service] starting…"
+echo "[pricing-service] startingÃ¢â‚¬Â¦"
 exec "$@"

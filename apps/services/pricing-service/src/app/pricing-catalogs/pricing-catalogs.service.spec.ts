@@ -349,6 +349,16 @@ describe('PricingCatalogsService', () => {
         service.publish('version-1', otherCraftsmanUser),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
+
+    it('wirft BadRequestException wenn Version PUBLISHED ist', async () => {
+     versionsRepo.findOne!.mockResolvedValue(
+        buildVersion({ status: CatalogVersionStatus.PUBLISHED }),
+    );
+    
+    await expect(
+        service.update('version-1', { positions: [] }, craftsmanUser),
+    ).rejects.toBeInstanceOf(BadRequestException);
+});
   });
 
   // ─── quote ─────────────────────────────────────────────────────────────────

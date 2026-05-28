@@ -54,6 +54,62 @@
       "loadFailed": "Could not load profile."
     }
   },
+  "pricing": {
+  "heading": "My Pricing Catalog",
+  "subheading": "Manage your price positions and publish your catalog.",
+  "tabs": {
+    "noTrades": "No trade categories assigned."
+  },
+  "draft": {
+    "heading": "Current draft",
+    "newDraft": "Create new draft",
+    "publish": "Publish",
+    "publishing": "Publishing…",
+    "publishConfirm": "Do you really want to publish this catalog? It cannot be changed afterwards.",
+    "publishSuccess": "Catalog published successfully.",
+    "publishFailed": "Publishing failed.",
+    "noDraft": "No draft available.",
+    "createFirst": "Create a new draft to get started."
+  },
+  "positions": {
+    "heading": "Positions",
+    "add": "Add position",
+    "edit": "Edit position",
+    "delete": "Delete position",
+    "deleteConfirm": "Really delete this position?",
+    "empty": "No positions yet. Add the first position.",
+    "columns": {
+      "key": "Key",
+      "label": "Label",
+      "unit": "Unit",
+      "netPrice": "Net price",
+      "vat": "VAT",
+      "actions": "Actions"
+    },
+    "units": {
+      "piece": "Piece",
+      "m2": "m²",
+      "meter": "Meter",
+      "hour": "Hour",
+      "flat": "Flat"
+    },
+    "saved": "Positions saved.",
+    "saveFailed": "Could not save positions."
+  },
+  "quote": {
+    "heading": "Calculate quote",
+    "calculate": "Calculate",
+    "calculating": "Calculating…",
+    "quantity": "Quantity",
+    "net": "Net",
+    "vat": "VAT",
+    "gross": "Gross",
+    "discounts": "Discounts",
+    "total": "Total",
+    "empty": "Add positions to calculate a quote.",
+    "failed": "Calculation failed."
+  }
+    },
   "validation": {
     "required": "Required",
     "email": "Invalid email",
