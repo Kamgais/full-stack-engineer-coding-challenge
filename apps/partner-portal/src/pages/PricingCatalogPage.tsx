@@ -310,21 +310,20 @@ useEffect(() => {
           </Tabs>
 
           {/* Kein Draft */}
-          {!currentVersion && (
+            {(!currentVersion || currentVersion.status === 'PUBLISHED') && (
             <Paper sx={{ p: 4 }}>
-              <Stack spacing={2} alignItems="center">
+                <Stack spacing={2} alignItems="center">
                 <Typography variant="body2" color="text.secondary">
-                  {t('pricing.draft.noDraft')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('pricing.draft.createFirst')}
+                    {currentVersion?.status === 'PUBLISHED'
+                    ? 'Katalog veröffentlicht. Erstelle einen neuen Entwurf für Änderungen.'
+                    : t('pricing.draft.noDraft')}
                 </Typography>
                 <Button variant="contained" onClick={handleCreateDraft}>
-                  {t('pricing.draft.newDraft')}
+                    {t('pricing.draft.newDraft')}
                 </Button>
-              </Stack>
+                </Stack>
             </Paper>
-          )}
+            )}
 
           {/* Katalog-Ansicht */}
           {currentVersion && (
