@@ -278,7 +278,7 @@ async publish(
 
     // Version publishen
     locked.status = CatalogVersionStatus.PUBLISHED;
-    locked.publishedBy = user.sub;
+    locked.publishedBy = user.email;
     locked.publishedAt = new Date();
 
     await tx.getRepository(CatalogVersion).save(locked);
