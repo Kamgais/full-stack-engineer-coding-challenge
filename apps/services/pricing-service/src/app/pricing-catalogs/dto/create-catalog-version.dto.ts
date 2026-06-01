@@ -1,9 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsDateString,
-  IsIn,
-  IsString,
-} from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { TRADE_CODES, TradeCode } from '@sandbox/types';
 
 export class CreateCatalogVersionDto {
@@ -22,4 +18,12 @@ export class CreateCatalogVersionDto {
   })
   @IsDateString()
   effectiveFrom: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional: ID einer bestehenden Version deren Positionen kopiert werden',
+  })
+  @IsOptional()
+  @IsUUID()
+  sourceVersionId?: string;
 }

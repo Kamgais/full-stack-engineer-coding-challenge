@@ -421,13 +421,9 @@ function VersionRow({
                                   variant="caption"
                                   color="text.secondary"
                                 >
-                                  {pos.minQuantity &&
-                                    `Min: ${pos.minQuantity}`}
-                                  {pos.minQuantity &&
-                                    pos.maxQuantity &&
-                                    ' — '}
-                                  {pos.maxQuantity &&
-                                    `Max: ${pos.maxQuantity}`}
+                                  {pos.minQuantity && `Min: ${pos.minQuantity}`}
+                                  {pos.minQuantity && pos.maxQuantity && ' — '}
+                                  {pos.maxQuantity && `Max: ${pos.maxQuantity}`}
                                 </Typography>
                               )}
                             </Stack>
@@ -711,13 +707,14 @@ export function PricingCatalogPage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [user, t]);
 
-  async function handleCreateDraft() {
+  async function handleCreateDraft(sourceVersionId?: string) {
     if (!currentTrade) return;
     setCreatingDraft(true);
     try {
       const version = await createCatalogVersion(
         currentTrade,
         new Date().toISOString(),
+        sourceVersionId,
       );
       setVersions((prev) => ({
         ...prev,
@@ -727,7 +724,8 @@ export function PricingCatalogPage(): JSX.Element {
     } catch (err) {
       setSnack({
         severity: 'error',
-        message: err instanceof ApiError ? err.message : t('app.errors.generic'),
+        message:
+          err instanceof ApiError ? err.message : t('app.errors.generic'),
       });
     } finally {
       setCreatingDraft(false);
@@ -797,23 +795,49 @@ export function PricingCatalogPage(): JSX.Element {
             <Typography variant="h2">
               {t('pricing.draft.heading')}
             </Typography>
-            <Tooltip
-              title={hasDraft ? t('pricing.versions.tooltipDraftExists') : ''}
-            >
-              <span>
+
+            {/* Buttons nur wenn kein DRAFT existiert */}
+            {!hasDraft && (
+              <Stack direction="row" spacing={1}>
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   size="small"
-                  onClick={handleCreateDraft}
-                  disabled={hasDraft || creatingDraft}
+                  onClick={() => handleCreateDraft()}
+                  disabled={creatingDraft}
                   startIcon={
                     creatingDraft ? <CircularProgress size={16} /> : null
                   }
                 >
-                  {t('pricing.draft.newDraft')}
+                  {t('pricing.draft.newDraftEmpty')}
                 </Button>
-              </span>
-            </Tooltip>
+
+                {/* Nur wenn aktive PUBLISHED Version existiert */}
+                {latestPublished && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => handleCreateDraft(latestPublished.id)}
+                    disabled={creatingDraft}
+                    startIcon={
+                      creatingDraft ? <CircularProgress size={16} /> : null
+                    }
+                  >
+                    {t('pricing.draft.newDraftFromActive')}
+                  </Button>
+                )}
+              </Stack>
+            )}
+
+            {/* Deaktivierter Button wenn DRAFT existiert */}
+            {hasDraft && (
+              <Tooltip title={t('pricing.versions.tooltipDraftExists')}>
+                <span>
+                  <Button variant="contained" size="small" disabled>
+                    {t('pricing.draft.newDraft')}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
           </Stack>
 
           {hasDraft && (

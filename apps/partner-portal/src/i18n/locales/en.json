@@ -69,7 +69,9 @@
     "publishSuccess": "Catalog published successfully.",
     "publishFailed": "Publishing failed.",
     "noDraft": "No draft available.",
-    "createFirst": "Create a new draft to get started."
+    "createFirst": "Create a new draft to get started.",
+    "newDraftEmpty": "Start empty draft",
+    "newDraftFromActive": "Start draft from active version"
   },
   "positions": {
     "heading": "Positions",
@@ -108,8 +110,28 @@
     "total": "Total",
     "empty": "Add positions to calculate a quote.",
     "failed": "Calculation failed."
-  }
+  },
+  "versions": {
+  "archivedHint": "This version is archived and can no longer be edited. It remains readable for audit purposes.",
+  "activeHint": "This is the currently active version. It is frozen and can no longer be edited.",
+  "hasDraftHint": "There is already an open draft. Please publish it before creating a new one.",
+  "columns": {
+    "effectiveFrom": "Effective from",
+    "status": "Status",
+    "positions": "Positions",
+    "publishedBy": "Published by"
+  },
+  "statusLabels": {
+    "draft": "DRAFT",
+    "active": "ACTIVE",
+    "archived": "ARCHIVED"
+  },
+  "positionsCount": "{{count}} positions",
+  "tooltipDraftExists": "Please publish the open draft first"
+} 
     },
+
+  
   "validation": {
     "required": "Required",
     "email": "Invalid email",

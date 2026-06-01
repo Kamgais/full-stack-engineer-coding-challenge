@@ -83,43 +83,73 @@ export class PricingCatalogsService {
 
   // ─── Create ─────────────────────────────────────────────────────────────────
 
-  async create(
-    dto: CreateCatalogVersionDto,
-    user: JwtPayload,
-  ): Promise<CatalogVersionResponseDto> {
-    const craftsmanId = this.resolveCraftsmanId(user);
+async create(
+  dto: CreateCatalogVersionDto,
+  user: JwtPayload,
+): Promise<CatalogVersionResponseDto> {
+  const craftsmanId = this.resolveCraftsmanId(user);
 
-    // Gibt es schon einen DRAFT für dieses (craftsmanId, trade)?
-    const existingDraft = await this.versions.findOne({
-      where: {
-        craftsmanId,
-        trade: dto.trade,
-        status: CatalogVersionStatus.DRAFT,
-      },
-    });
-
-    if (existingDraft) {
-      throw new ConflictException(
-        `Es gibt bereits einen DRAFT für ${dto.trade}. Bitte zuerst publishen oder löschen.`,
-      );
-    }
-
-    const version = this.versions.create({
+  // Gibt es schon einen DRAFT für dieses (craftsmanId, trade)?
+  const existingDraft = await this.versions.findOne({
+    where: {
       craftsmanId,
       trade: dto.trade,
       status: CatalogVersionStatus.DRAFT,
-      effectiveFrom: new Date(dto.effectiveFrom),
-      publishedBy: null,
-      publishedAt: null,
-    });
+    },
+  });
 
-    const saved = await this.versions.save(version);
-    this.logger.log(`Created catalog version ${saved.id} for craftsman ${craftsmanId}`);
-
-    return CatalogVersionResponseDto.from(
-      await this.loadVersion(saved.id),
+  if (existingDraft) {
+    throw new ConflictException(
+      `Es gibt bereits einen DRAFT für ${dto.trade}.`,
     );
   }
+
+  // Neue Version anlegen
+  const version = this.versions.create({
+    craftsmanId,
+    trade: dto.trade,
+    status: CatalogVersionStatus.DRAFT,
+    effectiveFrom: new Date(dto.effectiveFrom),
+    publishedBy: null,
+    publishedAt: null,
+  });
+
+  const saved = await this.versions.save(version);
+
+  // Positionen aus Quell-Version kopieren falls angegeben
+  if (dto.sourceVersionId) {
+    const source = await this.loadVersion(dto.sourceVersionId);
+
+    // Sicherheitscheck: Quell-Version muss demselben Craftsman gehören
+    this.assertCanAccess(source.craftsmanId, user);
+
+    if (source.positions.length > 0) {
+      await this.positions.save(
+        source.positions.map((p) =>
+          this.positions.create({
+            versionId: saved.id,
+            key: p.key,
+            label: p.label,
+            unit: p.unit,
+            netPriceMinorUnits: p.netPriceMinorUnits,
+            vatRate: p.vatRate,
+            minQuantity: p.minQuantity,
+            maxQuantity: p.maxQuantity,
+            tradeAttributes: p.tradeAttributes,
+            surcharges: p.surcharges,
+          }),
+        ),
+      );
+    }
+  }
+
+  this.logger.log(
+    `Created catalog version ${saved.id} for craftsman ${craftsmanId}` +
+    (dto.sourceVersionId ? ` (copied from ${dto.sourceVersionId})` : ''),
+  );
+
+  return CatalogVersionResponseDto.from(await this.loadVersion(saved.id));
+}
 
   // ─── Update ─────────────────────────────────────────────────────────────────
 
@@ -256,10 +286,6 @@ async publish(
       );
     }
 
-    // ── NEU: Alte aktive PUBLISHED Version deaktivieren ──────────────────
-    // Es darf immer nur eine aktive PUBLISHED Version geben.
-    // Wir setzen effectiveFrom der alten Version auf effectiveFrom der neuen
-    // Version damit sie nicht mehr aktiv ist — sie bleibt aber für Audit lesbar.
     const currentlyActive = await tx
       .getRepository(CatalogVersion)
       .createQueryBuilder('v')
@@ -269,8 +295,6 @@ async publish(
       .andWhere('v.id != :id', { id })
       .getMany();
 
-    // Alte Versionen bleiben PUBLISHED (für Audit) aber effectiveFrom
-    // der neuen Version überschreibt den aktiven Zeitraum
     this.logger.log(
       `Found ${currentlyActive.length} existing PUBLISHED versions for ` +
       `(${locked.craftsmanId}, ${locked.trade}) — they remain as audit log`,
@@ -322,7 +346,7 @@ async quoteByTrade(
       status: CatalogVersionStatus.PUBLISHED,
     },
     relations: ['positions', 'discounts'],
-    order: { effectiveFrom: 'DESC' }, // ← neueste zuerst
+    order: { effectiveFrom: 'DESC' }, 
   });
 
   if (!version) {

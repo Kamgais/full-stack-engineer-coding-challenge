@@ -69,7 +69,9 @@
     "publishSuccess": "Katalog erfolgreich veröffentlicht.",
     "publishFailed": "Veröffentlichung fehlgeschlagen.",
     "noDraft": "Kein Entwurf vorhanden.",
-    "createFirst": "Erstelle einen neuen Entwurf um loszulegen."
+    "createFirst": "Erstelle einen neuen Entwurf um loszulegen.",
+    "newDraftEmpty": "Leere Draft starten",
+    "newDraftFromActive": "Draft aus aktiver Version starten"
   },
   "positions": {
     "heading": "Positionen",
@@ -108,6 +110,24 @@
     "total": "Gesamt",
     "empty": "Füge Positionen hinzu um ein Angebot zu berechnen.",
     "failed": "Berechnung fehlgeschlagen."
+  },
+  "versions": {
+  "archivedHint": "Diese Version ist archiviert und kann nicht mehr bearbeitet werden. Sie bleibt für Audit-Zwecke lesbar.",
+  "activeHint": "Dies ist die aktuell aktive Version. Sie ist eingefroren und kann nicht mehr bearbeitet werden.",
+  "hasDraftHint": "Es gibt bereits einen offenen Entwurf. Bitte zuerst veröffentlichen bevor du einen neuen erstellst.",
+  "columns": {
+    "effectiveFrom": "Gültig ab",
+    "status": "Status",
+    "positions": "Positionen",
+    "publishedBy": "Veröffentlicht von"
+  },
+  "statusLabels": {
+    "draft": "DRAFT",
+    "active": "AKTIV",
+    "archived": "ARCHIV"
+  },
+  "positionsCount": "{{count}} Positionen",
+  "tooltipDraftExists": "Bitte zuerst den offenen Entwurf veröffentlichen"
   }
     },
   "validation": {

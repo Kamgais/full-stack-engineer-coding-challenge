@@ -130,9 +130,14 @@ export function getCatalogVersion(id: string): Promise<CatalogVersion> {
 export function createCatalogVersion(
   trade: string,
   effectiveFrom: string,
+  sourceVersionId?: string,
 ): Promise<CatalogVersion> {
   return apiClient
-    .post<CatalogVersion>('/pricing-catalogs', { trade, effectiveFrom })
+    .post<CatalogVersion>('/pricing-catalogs', {
+      trade,
+      effectiveFrom,
+      ...(sourceVersionId ? { sourceVersionId } : {}),
+    })
     .then((r) => r.data);
 }
 
