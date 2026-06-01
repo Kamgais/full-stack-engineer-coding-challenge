@@ -80,6 +80,9 @@
     "delete": "Delete position",
     "deleteConfirm": "Really delete this position?",
     "empty": "No positions yet. Add the first position.",
+    "minQuantity": "Min. quantity",
+    "maxQuantity": "Max. quantity",
+    "tradeAttributes": "Trade attributes",
     "columns": {
       "key": "Key",
       "label": "Label",
@@ -136,5 +139,12 @@
     "required": "Required",
     "email": "Invalid email",
     "maxLength": "Maximum {{n}} characters"
-  }
+  },
+"common": {
+  "cancel": "Cancel",
+  "save": "Save",
+  "yes": "Yes",
+  "no": "No",
+  "to": "to"
+}
 }

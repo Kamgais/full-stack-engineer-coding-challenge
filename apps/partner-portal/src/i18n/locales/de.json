@@ -80,6 +80,9 @@
     "delete": "Position löschen",
     "deleteConfirm": "Diese Position wirklich löschen?",
     "empty": "Noch keine Positionen. Füge die erste Position hinzu.",
+    "minQuantity": "Min. Menge",
+    "maxQuantity": "Max. Menge",
+    "tradeAttributes": "Trade-Attribute",
     "columns": {
       "key": "Schlüssel",
       "label": "Bezeichnung",
@@ -138,7 +141,11 @@
     "maxLength": "Maximal {{n}} Zeichen"
   },
  
-"common": {
-  "cancel": "Abbrechen"
+  "common": {
+  "cancel": "Abbrechen",
+  "save": "Speichern",
+  "yes": "Ja",
+  "no": "Nein",
+  "to": "bis"
 }
 }
