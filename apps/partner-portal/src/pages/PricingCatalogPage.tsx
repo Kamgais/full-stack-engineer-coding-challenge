@@ -44,11 +44,15 @@ import {
   PricingSchemaField,
   publishCatalogVersion,
   QuoteLine,
-  QuoteResult,
   updateCatalogVersion,
   UpsertPositionRequest,
 } from '../services/pricing-catalogs.service';
 import { PositionDialog } from '../components/PositionDialog';
+import {
+  mapVersionToTableRows,
+  mapQuoteToBreakdown,
+  QuoteBreakdown,
+} from './PricingCatalogPage.helpers';
 
 function positionToRequest(p: CatalogPosition): UpsertPositionRequest {
   return {
@@ -95,9 +99,12 @@ function VersionRow({
   const [publishDialog, setPublishDialog] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [quoteQtys, setQuoteQtys] = useState<Record<string, string>>({});
-  const [quoteResult, setQuoteResult] = useState<QuoteResult | null>(null);
+  const [quoteBreakdown, setQuoteBreakdown] = useState<QuoteBreakdown | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  // mapVersionToTableRows helper nutzen
+  const tableRows = mapVersionToTableRows(version);
 
   async function handleSavePosition(position: UpsertPositionRequest) {
     const existing = version.positions;
@@ -168,11 +175,12 @@ function VersionRow({
 
     setQuoteLoading(true);
     setQuoteError(null);
-    setQuoteResult(null);
+    setQuoteBreakdown(null);
 
     try {
       const result = await calculateQuote(version.id, lines);
-      setQuoteResult(result);
+      // mapQuoteToBreakdown helper nutzen
+      setQuoteBreakdown(mapQuoteToBreakdown(result));
     } catch (err) {
       setQuoteError(
         err instanceof ApiError ? err.message : t('pricing.quote.failed'),
@@ -298,7 +306,7 @@ function VersionRow({
                   )}
                 </Stack>
 
-                {version.positions.length === 0 ? (
+                {tableRows.length === 0 ? (
                   <Paper variant="outlined" sx={{ p: 3 }}>
                     <Typography
                       variant="body2"
@@ -339,27 +347,27 @@ function VersionRow({
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {version.positions.map((pos) => (
-                          <TableRow key={pos.key} hover>
+                        {tableRows.map((row) => (
+                          <TableRow key={row.key} hover>
                             <TableCell>
                               <Typography
                                 variant="body2"
                                 fontFamily="monospace"
                               >
-                                {pos.key}
+                                {row.key}
                               </Typography>
                             </TableCell>
-                            <TableCell>{pos.label}</TableCell>
+                            <TableCell>{row.label}</TableCell>
                             <TableCell>
                               {t(
-                                `pricing.positions.units.${pos.unit}` as any,
+                                `pricing.positions.units.${row.unit}` as any,
                               )}
                             </TableCell>
                             <TableCell align="right">
-                              {formatCents(pos.netPriceMinorUnits)}
+                              {formatCents(row.netPriceMinorUnits)}
                             </TableCell>
                             <TableCell align="right">
-                              {(pos.vatRate * 100).toFixed(0)} %
+                              {(row.vatRate * 100).toFixed(0)} %
                             </TableCell>
                             <TableCell>
                               <Typography
@@ -368,38 +376,37 @@ function VersionRow({
                                 fontFamily="monospace"
                                 fontSize={11}
                               >
-                                {Object.entries(pos.tradeAttributes)
-                                  .map(([k, v]) => `${k}: ${v}`)
-                                  .join(' · ') || '—'}
+                                {row.attributesSummary}
                               </Typography>
                             </TableCell>
                             {isDraft && (
                               <TableCell align="right">
-                                <Tooltip
-                                  title={t('pricing.positions.edit')}
-                                >
+                                <Tooltip title={t('pricing.positions.edit')}>
                                   <IconButton
                                     size="small"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setPositionDialog({
-                                        open: true,
-                                        initial: pos,
-                                      });
+                                      const pos = version.positions.find(
+                                        (p) => p.key === row.key,
+                                      );
+                                      if (pos) {
+                                        setPositionDialog({
+                                          open: true,
+                                          initial: pos,
+                                        });
+                                      }
                                     }}
                                   >
                                     <Edit fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                                <Tooltip
-                                  title={t('pricing.positions.delete')}
-                                >
+                                <Tooltip title={t('pricing.positions.delete')}>
                                   <IconButton
                                     size="small"
                                     color="error"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setDeleteConfirmKey(pos.key);
+                                      setDeleteConfirmKey(row.key);
                                     }}
                                   >
                                     <Delete fontSize="small" />
@@ -497,7 +504,8 @@ function VersionRow({
                         </Alert>
                       )}
 
-                      {quoteResult && (
+                      {/* Quote Ergebnis aus mapQuoteToBreakdown */}
+                      {quoteBreakdown && (
                         <Stack spacing={1}>
                           <TableContainer
                             component={Paper}
@@ -524,14 +532,14 @@ function VersionRow({
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {quoteResult.lines.map((line) => (
-                                  <TableRow key={line.positionKey}>
+                                {quoteBreakdown.lines.map((line) => (
+                                  <TableRow key={line.label}>
                                     <TableCell>{line.label}</TableCell>
                                     <TableCell align="right">
                                       {line.quantity}
                                     </TableCell>
                                     <TableCell align="right">
-                                      {formatCents(line.finalNetMinorUnits)}
+                                      {formatCents(line.netMinorUnits)}
                                     </TableCell>
                                     <TableCell align="right">
                                       {formatCents(line.vatMinorUnits)}
@@ -545,7 +553,7 @@ function VersionRow({
                             </Table>
                           </TableContainer>
 
-                          {quoteResult.vatGroups.map((g) => (
+                          {quoteBreakdown.vatGroups.map((g) => (
                             <Stack
                               key={g.vatRate}
                               direction="row"
@@ -564,7 +572,7 @@ function VersionRow({
                             </Stack>
                           ))}
 
-                          {quoteResult.totals.discountsTotalMinorUnits > 0 && (
+                          {quoteBreakdown.discountsTotalMinorUnits > 0 && (
                             <Stack
                               direction="row"
                               justifyContent="space-between"
@@ -577,7 +585,7 @@ function VersionRow({
                               </Typography>
                               <Typography variant="body2" color="error">
                                 -{formatCents(
-                                  quoteResult.totals.discountsTotalMinorUnits,
+                                  quoteBreakdown.discountsTotalMinorUnits,
                                 )}
                               </Typography>
                             </Stack>
@@ -596,9 +604,7 @@ function VersionRow({
                               {t('pricing.quote.total')}
                             </Typography>
                             <Typography variant="body1" fontWeight={600}>
-                              {formatCents(
-                                quoteResult.totals.grossMinorUnits,
-                              )}
+                              {formatCents(quoteBreakdown.totalGrossMinorUnits)}
                             </Typography>
                           </Stack>
                         </Stack>
@@ -620,7 +626,6 @@ function VersionRow({
         onClose={() => setPositionDialog({ open: false, initial: null })}
       />
 
-      {/* Löschen Bestätigungs-Dialog */}
       <Dialog
         open={!!deleteConfirmKey}
         onClose={() => setDeleteConfirmKey(null)}
@@ -650,7 +655,6 @@ function VersionRow({
         </DialogActions>
       </Dialog>
 
-      {/* Publish Dialog */}
       <Dialog open={publishDialog} onClose={() => setPublishDialog(false)}>
         <DialogTitle>{t('pricing.draft.publish')}</DialogTitle>
         <DialogContent>
@@ -870,9 +874,7 @@ export function PricingCatalogPage(): JSX.Element {
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={() =>
-                      handleCreateDraft(latestPublished?.id)
-                    }
+                    onClick={() => handleCreateDraft(latestPublished?.id)}
                     disabled={hasDraft || creatingDraft || !latestPublished}
                     startIcon={
                       creatingDraft ? <CircularProgress size={16} /> : null

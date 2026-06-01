@@ -4,6 +4,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   InputLabel,
   MenuItem,
@@ -20,6 +21,7 @@ import {
   PricingSchemaField,
   UpsertPositionRequest,
 } from '../services/pricing-catalogs.service';
+import { isFieldVisible } from '../pages/PricingCatalogPage.helpers';
 
 interface Props {
   open: boolean;
@@ -84,17 +86,12 @@ export function PositionDialog({
 
   const watchedAttributes = watch('tradeAttributes');
 
-  function isFieldVisible(field: PricingSchemaField): boolean {
-    if (!field.dependsOn) return true;
-    const depValue = watchedAttributes?.[field.dependsOn.field];
-    return depValue === String(field.dependsOn.equals);
-  }
-
   function onSubmit(values: PositionForm) {
     const tradeAttributes: Record<string, unknown> = {};
 
     for (const field of schemaFields) {
-      if (!isFieldVisible(field)) continue;
+      // isFieldVisible aus helpers nutzen
+      if (!isFieldVisible(field, watchedAttributes ?? {})) continue;
       const raw = values.tradeAttributes[field.name];
       if (raw === '' || raw === undefined) continue;
 
@@ -130,7 +127,6 @@ export function PositionDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
 
-          {/* Basis-Felder */}
           <TextField
             label={t('pricing.positions.columns.key')}
             size="small"
@@ -138,6 +134,7 @@ export function PositionDialog({
             disabled={!!initial}
             {...register('key', { required: true })}
             error={!!errors.key}
+            helperText={errors.key ? t('validation.required') : undefined}
           />
 
           <TextField
@@ -146,6 +143,7 @@ export function PositionDialog({
             fullWidth
             {...register('label', { required: true })}
             error={!!errors.label}
+            helperText={errors.label ? t('validation.required') : undefined}
           />
 
           <Controller
@@ -158,7 +156,7 @@ export function PositionDialog({
                 <Select {...field} label={t('pricing.positions.columns.unit')}>
                   {UNITS.map((u) => (
                     <MenuItem key={u} value={u}>
-                      {t(`pricing.positions.units.${u}`)}
+                      {t(`pricing.positions.units.${u}` as any)}
                     </MenuItem>
                   ))}
                 </Select>
@@ -167,35 +165,37 @@ export function PositionDialog({
           />
 
           <TextField
-            label={t('pricing.positions.columns.netPrice') + ' (€)'}
+            label={`${t('pricing.positions.columns.netPrice')} (€)`}
             size="small"
             fullWidth
             type="number"
             inputProps={{ step: '0.01', min: '0' }}
             {...register('netPriceEur', { required: true, min: 0 })}
             error={!!errors.netPriceEur}
+            helperText={errors.netPriceEur ? t('validation.required') : undefined}
           />
 
           <TextField
-            label={t('pricing.positions.columns.vat') + ' (%)'}
+            label={`${t('pricing.positions.columns.vat')} (%)`}
             size="small"
             fullWidth
             type="number"
             inputProps={{ step: '1', min: '0', max: '100' }}
             {...register('vatRate', { required: true })}
             error={!!errors.vatRate}
+            helperText={errors.vatRate ? t('validation.required') : undefined}
           />
 
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Min. Menge"
+              label={t('pricing.positions.minQuantity')}
               size="small"
               fullWidth
               type="number"
               {...register('minQuantity')}
             />
             <TextField
-              label="Max. Menge"
+              label={t('pricing.positions.maxQuantity')}
               size="small"
               fullWidth
               type="number"
@@ -206,14 +206,15 @@ export function PositionDialog({
           {/* Dynamische Trade-Attribute vom Schema */}
           {schemaFields.length > 0 && (
             <>
+              <Divider />
               <Typography variant="subtitle2" color="text.secondary">
-                Trade-Attribute
+                {t('pricing.positions.tradeAttributes')}
               </Typography>
 
               {schemaFields.map((field) => {
-                if (!isFieldVisible(field)) return null;
+                // isFieldVisible aus helpers
+                if (!isFieldVisible(field, watchedAttributes ?? {})) return null;
 
-                // Enum → Select
                 if (field.type === 'enum') {
                   return (
                     <Controller
@@ -221,10 +222,14 @@ export function PositionDialog({
                       name={`tradeAttributes.${field.name}`}
                       control={control}
                       rules={{ required: field.required }}
-                      render={({ field: f }) => (
+                      render={({ field: f, fieldState }) => (
                         <FormControl fullWidth size="small">
                           <InputLabel>{field.name}</InputLabel>
-                          <Select {...f} label={field.name}>
+                          <Select
+                            {...f}
+                            label={field.name}
+                            error={!!fieldState.error}
+                          >
                             {field.allowedValues?.map((v) => (
                               <MenuItem key={v} value={v}>
                                 {v}
@@ -237,7 +242,6 @@ export function PositionDialog({
                   );
                 }
 
-                // Boolean → Select
                 if (field.type === 'boolean') {
                   return (
                     <Controller
@@ -245,12 +249,16 @@ export function PositionDialog({
                       name={`tradeAttributes.${field.name}`}
                       control={control}
                       rules={{ required: field.required }}
-                      render={({ field: f }) => (
+                      render={({ field: f, fieldState }) => (
                         <FormControl fullWidth size="small">
                           <InputLabel>{field.name}</InputLabel>
-                          <Select {...f} label={field.name}>
-                            <MenuItem value="true">Ja</MenuItem>
-                            <MenuItem value="false">Nein</MenuItem>
+                          <Select
+                            {...f}
+                            label={field.name}
+                            error={!!fieldState.error}
+                          >
+                            <MenuItem value="true">{t('common.yes')}</MenuItem>
+                            <MenuItem value="false">{t('common.no')}</MenuItem>
                           </Select>
                         </FormControl>
                       )}
@@ -258,7 +266,6 @@ export function PositionDialog({
                   );
                 }
 
-                // Number / String → TextField
                 return (
                   <TextField
                     key={field.name}
@@ -275,8 +282,9 @@ export function PositionDialog({
                       required: field.required,
                     })}
                     helperText={
-                      field.type === 'number' && (field.min !== undefined || field.max !== undefined)
-                        ? `${field.min ?? '—'} bis ${field.max ?? '—'}`
+                      field.type === 'number' &&
+                      (field.min !== undefined || field.max !== undefined)
+                        ? `${field.min ?? '—'} ${t('common.to')} ${field.max ?? '—'}`
                         : undefined
                     }
                   />
@@ -289,12 +297,10 @@ export function PositionDialog({
 
       <DialogActions>
         <Button onClick={onClose} color="inherit">
-          Abbrechen
+          {t('common.cancel')}
         </Button>
         <Button onClick={handleSubmit(onSubmit)} variant="contained">
-          {t('pricing.draft.publish') === 'Veröffentlichen'
-            ? 'Speichern'
-            : 'Save'}
+          {t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>
