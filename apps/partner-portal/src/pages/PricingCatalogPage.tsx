@@ -91,6 +91,7 @@ function VersionRow({
     open: boolean;
     initial: CatalogPosition | null;
   }>({ open: false, initial: null });
+  const [deleteConfirmKey, setDeleteConfirmKey] = useState<string | null>(null);
   const [publishDialog, setPublishDialog] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [quoteQtys, setQuoteQtys] = useState<Record<string, string>>({});
@@ -126,6 +127,7 @@ function VersionRow({
     try {
       const saved = await updateCatalogVersion(version.id, updated);
       onVersionUpdated(saved);
+      onSnack('success', t('pricing.positions.deleteSuccess'));
     } catch (err) {
       onSnack(
         'error',
@@ -326,6 +328,9 @@ function VersionRow({
                           <TableCell align="right">
                             {t('pricing.positions.columns.vat')}
                           </TableCell>
+                          <TableCell>
+                            {t('pricing.positions.columns.attributes')}
+                          </TableCell>
                           {isDraft && (
                             <TableCell align="right">
                               {t('pricing.positions.columns.actions')}
@@ -356,6 +361,18 @@ function VersionRow({
                             <TableCell align="right">
                               {(pos.vatRate * 100).toFixed(0)} %
                             </TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                fontFamily="monospace"
+                                fontSize={11}
+                              >
+                                {Object.entries(pos.tradeAttributes)
+                                  .map(([k, v]) => `${k}: ${v}`)
+                                  .join(' · ') || '—'}
+                              </Typography>
+                            </TableCell>
                             {isDraft && (
                               <TableCell align="right">
                                 <Tooltip
@@ -382,7 +399,7 @@ function VersionRow({
                                     color="error"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleDeletePosition(pos.key);
+                                      setDeleteConfirmKey(pos.key);
                                     }}
                                   >
                                     <Delete fontSize="small" />
@@ -603,6 +620,37 @@ function VersionRow({
         onClose={() => setPositionDialog({ open: false, initial: null })}
       />
 
+      {/* Löschen Bestätigungs-Dialog */}
+      <Dialog
+        open={!!deleteConfirmKey}
+        onClose={() => setDeleteConfirmKey(null)}
+      >
+        <DialogTitle>{t('pricing.positions.delete')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t('pricing.positions.deleteConfirm')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmKey(null)} color="inherit">
+            {t('common.cancel')}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              if (deleteConfirmKey) {
+                handleDeletePosition(deleteConfirmKey);
+                setDeleteConfirmKey(null);
+              }
+            }}
+          >
+            {t('pricing.positions.delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Publish Dialog */}
       <Dialog open={publishDialog} onClose={() => setPublishDialog(false)}>
         <DialogTitle>{t('pricing.draft.publish')}</DialogTitle>
         <DialogContent>
@@ -612,7 +660,7 @@ function VersionRow({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPublishDialog(false)} color="inherit">
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handlePublish}
@@ -796,48 +844,45 @@ export function PricingCatalogPage(): JSX.Element {
               {t('pricing.draft.heading')}
             </Typography>
 
-            {/* Buttons nur wenn kein DRAFT existiert */}
-            {!hasDraft && (
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleCreateDraft()}
-                  disabled={creatingDraft}
-                  startIcon={
-                    creatingDraft ? <CircularProgress size={16} /> : null
-                  }
-                >
-                  {t('pricing.draft.newDraftEmpty')}
-                </Button>
+            <Stack direction="row" spacing={1}>
+              <Tooltip
+                title={hasDraft ? t('pricing.versions.tooltipDraftExists') : ''}
+              >
+                <span>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleCreateDraft()}
+                    disabled={hasDraft || creatingDraft}
+                    startIcon={
+                      creatingDraft ? <CircularProgress size={16} /> : null
+                    }
+                  >
+                    {t('pricing.draft.newDraftEmpty')}
+                  </Button>
+                </span>
+              </Tooltip>
 
-                {/* Nur wenn aktive PUBLISHED Version existiert */}
-                {latestPublished && (
+              <Tooltip
+                title={hasDraft ? t('pricing.versions.tooltipDraftExists') : ''}
+              >
+                <span>
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={() => handleCreateDraft(latestPublished.id)}
-                    disabled={creatingDraft}
+                    onClick={() =>
+                      handleCreateDraft(latestPublished?.id)
+                    }
+                    disabled={hasDraft || creatingDraft || !latestPublished}
                     startIcon={
                       creatingDraft ? <CircularProgress size={16} /> : null
                     }
                   >
                     {t('pricing.draft.newDraftFromActive')}
                   </Button>
-                )}
-              </Stack>
-            )}
-
-            {/* Deaktivierter Button wenn DRAFT existiert */}
-            {hasDraft && (
-              <Tooltip title={t('pricing.versions.tooltipDraftExists')}>
-                <span>
-                  <Button variant="contained" size="small" disabled>
-                    {t('pricing.draft.newDraft')}
-                  </Button>
                 </span>
               </Tooltip>
-            )}
+            </Stack>
           </Stack>
 
           {hasDraft && (

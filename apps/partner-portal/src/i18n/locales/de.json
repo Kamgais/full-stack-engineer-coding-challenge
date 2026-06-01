@@ -86,7 +86,8 @@
       "unit": "Einheit",
       "netPrice": "Nettopreis",
       "vat": "MwSt",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "attributes": "Attribute"
     },
     "units": {
       "piece": "Stück",
@@ -96,7 +97,8 @@
       "flat": "Pauschale"
     },
     "saved": "Positionen gespeichert.",
-    "saveFailed": "Speichern fehlgeschlagen."
+    "saveFailed": "Speichern fehlgeschlagen.",
+     "deleteSuccess": "Position gelöscht."
   },
   "quote": {
     "heading": "Angebot berechnen",
@@ -134,5 +136,9 @@
     "required": "Pflichtfeld",
     "email": "Ungültige E-Mail",
     "maxLength": "Maximal {{n}} Zeichen"
-  }
+  },
+ 
+"common": {
+  "cancel": "Abbrechen"
+}
 }
