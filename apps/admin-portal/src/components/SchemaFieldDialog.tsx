@@ -17,6 +17,13 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PricingSchemaField } from '../services/trades.service';
+import {
+  applyTypeChange,
+  formStateToSchemaField,
+  schemaFieldToFormState,
+  SchemaFieldFormState,
+  validateSchemaFieldFormState,
+} from './SchemaEditor.helpers';
 
 interface Props {
   open: boolean;
@@ -26,10 +33,15 @@ interface Props {
   onClose: () => void;
 }
 
-const EMPTY: PricingSchemaField = {
+const EMPTY_STATE: SchemaFieldFormState = {
   name: '',
   type: 'string',
   required: false,
+  min: '',
+  max: '',
+  allowedValues: '',
+  dependsOnField: '',
+  dependsOnValue: '',
 };
 
 export function SchemaFieldDialog({
@@ -40,47 +52,41 @@ export function SchemaFieldDialog({
   onClose,
 }: Props): JSX.Element {
   const { t } = useTranslation();
-  const [field, setField] = useState<PricingSchemaField>(EMPTY);
-  const [nameError, setNameError] = useState('');
+  const [state, setState] = useState<SchemaFieldFormState>(EMPTY_STATE);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) {
-      setField(initial ?? EMPTY);
-      setNameError('');
+      // schemaFieldToFormState helper nutzen
+      setState(initial ? schemaFieldToFormState(initial) : EMPTY_STATE);
+      setErrors({});
     }
   }, [open, initial]);
 
-  function handleTypeChange(type: PricingSchemaField['type']) {
-    // Typ wechseln — min/max/allowedValues zurücksetzen
-    setField((f) => ({
-      name: f.name,
-      type,
-      required: f.required,
-      dependsOn: f.dependsOn,
-    }));
+  function handleTypeChange(newType: PricingSchemaField['type']) {
+    // applyTypeChange helper nutzen — löscht irrelevante Felder
+    setState((prev) => applyTypeChange(prev, newType));
   }
 
   function handleSave() {
-    // Validierung
-    if (!field.name.trim()) {
-      setNameError(t('trades.schema.fieldName') + ' ist Pflicht');
-      return;
-    }
-    const isDuplicate =
-      !initial &&
-      existingFieldNames.includes(field.name.trim());
-    if (isDuplicate) {
-      setNameError('Dieser Feldname existiert bereits');
+    // validateSchemaFieldFormState helper nutzen
+    const validationErrors = validateSchemaFieldFormState(
+      state,
+      existingFieldNames,
+      !initial,
+    );
+
+    if (validationErrors.length > 0) {
+      const errorMap: Record<string, string> = {};
+      validationErrors.forEach((e) => {
+        errorMap[e.field] = e.message;
+      });
+      setErrors(errorMap);
       return;
     }
 
-    // allowedValues als String parsen
-    const parsed: PricingSchemaField = {
-      ...field,
-      name: field.name.trim(),
-    };
-
-    onSave(parsed);
+    // formStateToSchemaField helper nutzen
+    onSave(formStateToSchemaField(state));
   }
 
   return (
@@ -93,34 +99,35 @@ export function SchemaFieldDialog({
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+
           {/* Feldname */}
           <TextField
             label={t('trades.schema.fieldName')}
-            value={field.name}
+            value={state.name}
             onChange={(e) => {
-              setField((f) => ({ ...f, name: e.target.value }));
-              setNameError('');
+              setState((prev) => ({ ...prev, name: e.target.value }));
+              setErrors((prev) => ({ ...prev, name: '' }));
             }}
-            error={!!nameError}
-            helperText={nameError}
+            error={!!errors.name}
+            helperText={errors.name}
             disabled={!!initial}
             fullWidth
             size="small"
           />
 
-          {/* Typ */}
+          {/* Typ — Source of Truth für min/max/allowedValues */}
           <FormControl fullWidth size="small">
             <InputLabel>{t('trades.schema.fieldType')}</InputLabel>
             <Select
-              value={field.type}
+              value={state.type}
               label={t('trades.schema.fieldType')}
               onChange={(e) =>
                 handleTypeChange(e.target.value as PricingSchemaField['type'])
               }
             >
-              {(['string', 'number', 'boolean', 'enum'] as const).map((t_) => (
-                <MenuItem key={t_} value={t_}>
-                  {t(`trades.schema.types.${t_}`)}
+              {(['string', 'number', 'boolean', 'enum'] as const).map((type) => (
+                <MenuItem key={type} value={type}>
+                  {t(`trades.schema.types.${type}`)}
                 </MenuItem>
               ))}
             </Select>
@@ -130,9 +137,9 @@ export function SchemaFieldDialog({
           <FormControlLabel
             control={
               <Checkbox
-                checked={field.required}
+                checked={state.required}
                 onChange={(e) =>
-                  setField((f) => ({ ...f, required: e.target.checked }))
+                  setState((prev) => ({ ...prev, required: e.target.checked }))
                 }
               />
             }
@@ -140,31 +147,28 @@ export function SchemaFieldDialog({
           />
 
           {/* Min/Max — nur bei number */}
-          {field.type === 'number' && (
+          {state.type === 'number' && (
             <>
               <TextField
                 label={t('trades.schema.fieldMin')}
                 type="number"
-                value={field.min ?? ''}
+                value={state.min}
                 onChange={(e) =>
-                  setField((f) => ({
-                    ...f,
-                    min: e.target.value ? Number(e.target.value) : undefined,
-                  }))
+                  setState((prev) => ({ ...prev, min: e.target.value }))
                 }
+                error={!!errors.max}
                 fullWidth
                 size="small"
               />
               <TextField
                 label={t('trades.schema.fieldMax')}
                 type="number"
-                value={field.max ?? ''}
+                value={state.max}
                 onChange={(e) =>
-                  setField((f) => ({
-                    ...f,
-                    max: e.target.value ? Number(e.target.value) : undefined,
-                  }))
+                  setState((prev) => ({ ...prev, max: e.target.value }))
                 }
+                error={!!errors.max}
+                helperText={errors.max}
                 fullWidth
                 size="small"
               />
@@ -172,20 +176,15 @@ export function SchemaFieldDialog({
           )}
 
           {/* Erlaubte Werte — nur bei enum */}
-          {field.type === 'enum' && (
+          {state.type === 'enum' && (
             <TextField
               label={t('trades.schema.fieldAllowedValues')}
-              value={field.allowedValues?.join(', ') ?? ''}
+              value={state.allowedValues}
               onChange={(e) =>
-                setField((f) => ({
-                  ...f,
-                  allowedValues: e.target.value
-                    .split(',')
-                    .map((v) => v.trim())
-                    .filter(Boolean),
-                }))
+                setState((prev) => ({ ...prev, allowedValues: e.target.value }))
               }
-              helperText="z.B. wood, pvc, aluminum"
+              error={!!errors.allowedValues}
+              helperText={errors.allowedValues ?? 'z.B. wood, pvc, aluminum'}
               fullWidth
               size="small"
             />
@@ -193,34 +192,31 @@ export function SchemaFieldDialog({
 
           <Divider />
 
-          {/* dependsOn */}
+          {/* dependsOn Feld */}
           <TextField
             label={t('trades.schema.fieldDependsOn')}
-            value={field.dependsOn?.field ?? ''}
+            value={state.dependsOnField}
             onChange={(e) =>
-              setField((f) => ({
-                ...f,
-                dependsOn: e.target.value
-                  ? { field: e.target.value, equals: f.dependsOn?.equals ?? '' }
-                  : undefined,
-              }))
+              setState((prev) => ({ ...prev, dependsOnField: e.target.value }))
             }
-            helperText="Feldname von dem dieses Feld abhängt"
+            error={!!errors.dependsOnField}
+            helperText={
+              errors.dependsOnField ??
+              t('trades.schema.fieldDependsOn')
+            }
             fullWidth
             size="small"
           />
 
-          {field.dependsOn?.field && (
+          {/* dependsOn Wert — nur wenn Feld gesetzt */}
+          {state.dependsOnField && (
             <TextField
               label={t('trades.schema.fieldDependsOnValue')}
-              value={field.dependsOn?.equals ?? ''}
+              value={state.dependsOnValue}
               onChange={(e) =>
-                setField((f) => ({
-                  ...f,
-                  dependsOn: {
-                    field: f.dependsOn!.field,
-                    equals: e.target.value,
-                  },
+                setState((prev) => ({
+                  ...prev,
+                  dependsOnValue: e.target.value,
                 }))
               }
               fullWidth
@@ -232,7 +228,7 @@ export function SchemaFieldDialog({
 
       <DialogActions>
         <Button onClick={onClose} color="inherit">
-          Abbrechen
+          {t('trades.schema.save') === 'Speichern' ? 'Abbrechen' : 'Cancel'}
         </Button>
         <Button onClick={handleSave} variant="contained">
           {t('trades.schema.save')}
