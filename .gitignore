@@ -32,3 +32,9 @@ yarn-error.log*
 
 # database volumes
 postgres-data/
+
+
+# terraform
+terraform/*.tfvars
+terraform/.terraform/
+terraform/.terraform.lock.hcl
