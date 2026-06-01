@@ -325,3 +325,126 @@ describe('applyTypeChange', () => {
     expect(result.dependsOnValue).toBe('someValue');
   });
 });
+
+// ─── Integrationstest: Typ-Wechsel ───────────────────────────────────────────
+
+describe('Typ-Wechsel Integration', () => {
+  it('number → enum: kompletter Workflow', () => {
+    // Schritt 1: Admin hat ein number-Feld konfiguriert
+    const numberField: PricingSchemaField = {
+      name: 'powerKw',
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 100,
+    };
+
+    // Schritt 2: FormState laden
+    const formState = schemaFieldToFormState(numberField);
+    expect(formState.type).toBe('number');
+    expect(formState.min).toBe('1');
+    expect(formState.max).toBe('100');
+
+    // Schritt 3: Typ auf enum wechseln
+    const afterTypeChange = applyTypeChange(formState, 'enum');
+    expect(afterTypeChange.type).toBe('enum');
+    expect(afterTypeChange.min).toBe('');   // gelöscht
+    expect(afterTypeChange.max).toBe('');   // gelöscht
+
+    // Schritt 4: allowedValues eintragen
+    const withValues: SchemaFieldFormState = {
+      ...afterTypeChange,
+      allowedValues: 'low, medium, high',
+    };
+
+    // Schritt 5: Validierung
+    const errors = validateSchemaFieldFormState(withValues, [], false);
+    expect(errors).toHaveLength(0);
+
+    // Schritt 6: Zurück zu SchemaField
+    const result = formStateToSchemaField(withValues);
+    expect(result.type).toBe('enum');
+    expect(result.allowedValues).toEqual(['low', 'medium', 'high']);
+    expect(result.min).toBeUndefined();
+    expect(result.max).toBeUndefined();
+  });
+
+  it('enum → number: kompletter Workflow', () => {
+    // Schritt 1: Admin hat ein enum-Feld
+    const enumField: PricingSchemaField = {
+      name: 'material',
+      type: 'enum',
+      required: true,
+      allowedValues: ['wood', 'pvc'],
+    };
+
+    // Schritt 2: FormState laden
+    const formState = schemaFieldToFormState(enumField);
+    expect(formState.allowedValues).toBe('wood, pvc');
+
+    // Schritt 3: Typ auf number wechseln
+    const afterTypeChange = applyTypeChange(formState, 'number');
+    expect(afterTypeChange.type).toBe('number');
+    expect(afterTypeChange.allowedValues).toBe('');  // gelöscht
+
+    // Schritt 4: min/max eintragen
+    const withRange: SchemaFieldFormState = {
+      ...afterTypeChange,
+      min: '0',
+      max: '50',
+    };
+
+    // Schritt 5: Validierung
+    const errors = validateSchemaFieldFormState(withRange, [], false);
+    expect(errors).toHaveLength(0);
+
+    // Schritt 6: Zurück zu SchemaField
+    const result = formStateToSchemaField(withRange);
+    expect(result.type).toBe('number');
+    expect(result.min).toBe(0);
+    expect(result.max).toBe(50);
+    expect(result.allowedValues).toBeUndefined();
+  });
+
+  it('Typ-Wechsel behält name, required, dependsOn', () => {
+    const field: PricingSchemaField = {
+      name: 'myField',
+      type: 'number',
+      required: true,
+      min: 1,
+      dependsOn: { field: 'otherField', equals: 'yes' },
+    };
+
+    const formState = schemaFieldToFormState(field);
+    const afterChange = applyTypeChange(formState, 'string');
+
+    expect(afterChange.name).toBe('myField');
+    expect(afterChange.required).toBe(true);
+    expect(afterChange.dependsOnField).toBe('otherField');
+    expect(afterChange.dependsOnValue).toBe('yes');
+    expect(afterChange.min).toBe('');  // gelöscht
+  });
+
+  it('mehrere Typ-Wechsel hintereinander', () => {
+    const formState = schemaFieldToFormState({
+      name: 'test',
+      type: 'string',
+      required: false,
+    });
+
+    // string → number
+    const asNumber = applyTypeChange(formState, 'number');
+    expect(asNumber.type).toBe('number');
+
+    // number → enum
+    const asEnum = applyTypeChange(asNumber, 'enum');
+    expect(asEnum.type).toBe('enum');
+    expect(asEnum.min).toBe('');
+    expect(asEnum.max).toBe('');
+
+    // enum → boolean
+    const asBoolean = applyTypeChange(asEnum, 'boolean');
+    expect(asBoolean.type).toBe('boolean');
+    expect(asBoolean.allowedValues).toBe('');
+  });
+});

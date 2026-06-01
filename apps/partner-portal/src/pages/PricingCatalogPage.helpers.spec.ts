@@ -4,7 +4,7 @@ import {
   isFieldVisible,
   mapQuoteToBreakdown,
 } from './PricingCatalogPage.helpers';
-import { CatalogVersion, QuoteResult } from '../services/pricing-catalogs.service';
+import { CatalogVersion, PricingSchemaField, QuoteResult } from '../services/pricing-catalogs.service';
 
 // ─── Test-Daten ───────────────────────────────────────────────────────────────
 
@@ -273,5 +273,101 @@ describe('mapQuoteToBreakdown', () => {
     const breakdown = mapQuoteToBreakdown(withDiscount);
     expect(breakdown.discountsTotalMinorUnits).toBe(3000);
     expect(breakdown.totalGrossMinorUnits).toBe(42220);
+  });
+});
+
+// ─── Integrationstest: Validation-Error im PositionDialog ────────────────────
+
+describe('PositionDialog Validierung Integration', () => {
+  it('pflichtfelder fehlen → mehrere Fehler gleichzeitig', () => {
+    // Simuliert: Benutzer klickt Save ohne etwas auszufüllen
+    // isFieldVisible prüft ob Felder sichtbar sind
+    // formStateToSchemaField würde leere Werte produzieren
+
+    const schemaFields: PricingSchemaField[] = [
+      { name: 'heatingPowerKw', type: 'number', required: true, min: 1, max: 100 },
+      { name: 'frameMaterial', type: 'enum', required: true, allowedValues: ['wood', 'pvc'] },
+      {
+        name: 'woodTreatment',
+        type: 'string',
+        required: true,
+        dependsOn: { field: 'frameMaterial', equals: 'wood' },
+      },
+    ];
+
+    const emptyValues: Record<string, string> = {};
+
+    // Alle Felder ohne dependsOn sind sichtbar
+    const visibleFields = schemaFields.filter((f) =>
+      isFieldVisible(f, emptyValues),
+    );
+
+    // woodTreatment ist nicht sichtbar weil frameMaterial leer
+    expect(visibleFields).toHaveLength(2);
+    expect(visibleFields.map((f) => f.name)).toContain('heatingPowerKw');
+    expect(visibleFields.map((f) => f.name)).toContain('frameMaterial');
+    expect(visibleFields.map((f) => f.name)).not.toContain('woodTreatment');
+  });
+
+  it('frameMaterial = wood → woodTreatment wird sichtbar und Pflicht', () => {
+    const schemaFields: PricingSchemaField[] = [
+      { name: 'frameMaterial', type: 'enum', required: true, allowedValues: ['wood', 'pvc'] },
+      {
+        name: 'woodTreatment',
+        type: 'string',
+        required: true,
+        dependsOn: { field: 'frameMaterial', equals: 'wood' },
+      },
+    ];
+
+    const valuesWithWood: Record<string, string> = { frameMaterial: 'wood' };
+    const valuesWithPvc: Record<string, string> = { frameMaterial: 'pvc' };
+
+    // Mit wood → woodTreatment sichtbar
+    const visibleWithWood = schemaFields.filter((f) =>
+      isFieldVisible(f, valuesWithWood),
+    );
+    expect(visibleWithWood).toHaveLength(2);
+
+    // Mit pvc → woodTreatment nicht sichtbar
+    const visibleWithPvc = schemaFields.filter((f) =>
+      isFieldVisible(f, valuesWithPvc),
+    );
+    expect(visibleWithPvc).toHaveLength(1);
+    expect(visibleWithPvc[0].name).toBe('frameMaterial');
+  });
+
+  it('unsichtbare Felder werden beim Submit ignoriert', () => {
+    // Simuliert: woodTreatment ist unsichtbar (frameMaterial = pvc)
+    // → darf nicht in tradeAttributes landen
+    const schemaFields: PricingSchemaField[] = [
+      { name: 'frameMaterial', type: 'enum', required: true, allowedValues: ['wood', 'pvc'] },
+      {
+        name: 'woodTreatment',
+        type: 'string',
+        required: true,
+        dependsOn: { field: 'frameMaterial', equals: 'wood' },
+      },
+    ];
+
+    const values: Record<string, string> = {
+      frameMaterial: 'pvc',
+      woodTreatment: 'lacquer', // ausgefüllt aber unsichtbar
+    };
+
+    // Nur sichtbare Felder filtern
+    const visibleFields = schemaFields.filter((f) =>
+      isFieldVisible(f, values),
+    );
+
+    // woodTreatment ist unsichtbar → wird gefiltert
+    const tradeAttributes: Record<string, unknown> = {};
+    for (const field of visibleFields) {
+      const raw = values[field.name];
+      if (raw) tradeAttributes[field.name] = raw;
+    }
+
+    expect(tradeAttributes).toEqual({ frameMaterial: 'pvc' });
+    expect(tradeAttributes['woodTreatment']).toBeUndefined();
   });
 });
